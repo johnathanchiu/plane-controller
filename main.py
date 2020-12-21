@@ -35,7 +35,7 @@ desired_y = 100
 desired_velocity = 60 # m/s
 
 time_step = 1
-sim_time = 10
+sim_time = 5
 
 guess_range = (0, 3)
 
@@ -68,8 +68,9 @@ for i in range(10000):
     if i % 5 == 0:
         init_states = [x - true_init_x, z - true_init_z, gs, psi]
         desired_states = [desired_x, desired_y, desired_velocity]
+        print("computing optimal trajectory/controls")
         controls, success, msg = solve_states(init_states, desired_states, time_step, sim_time)
-#        print(success, msg)
+        print(success, msg)
         state = 0
 
     # send controls to xplane
