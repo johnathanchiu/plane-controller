@@ -4,7 +4,7 @@ import scipy.optimize as opt
 import random
 
 
-get_controls = lambda x: [x[i+3:i+4] for i in range(0, len(x), 6)]
+get_controls = lambda x: [x[i+2:i+4] for i in range(0, len(x), 6)]
 
 
 def shape_states(variables):
@@ -83,6 +83,6 @@ def solve_states(initial_states, desired_states, time_step, sim_time, guess_rang
                               constraint_weight=1, control_weight=0.5)
 
     result = opt.minimize(obj, init_guess, method='SLSQP', constraints={"fun": con, "type": "eq"},
-                          options={'eps': 0.01, 'maxiter': 1000})
+                          options={'eps': 0.01}) #'maxiter': 1000})
                           
     return get_controls(result.x), result.success, result.message
