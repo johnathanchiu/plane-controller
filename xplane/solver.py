@@ -54,10 +54,9 @@ def solve_states(initial_states, desired_states, acceleration_constraint, turnin
     obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], time_step=time_step,
                               state_weight=1, constraint_weight=1, control_weight=0.5,
                               dstate_weight=10)
-    print(init_guess)
+
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.01, 'maxiter': 1000})
     states = compute_states(initial_states, result.x, time_step=time_step)
-                          
     return get_controls(states), result.success, result.message
     
