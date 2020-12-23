@@ -67,7 +67,7 @@ for i in range(20):
     psi -= runway_heading 
     
     if i % 5 == 0:
-        # add initial heading back to get solver coordinates
+        # subtract psi from initial heading back to get solver coordinates (xplane left of 90 is negative heading)
         # xplane positive z-axis points south
         init_states = [x - true_init_x, true_init_z - z, gs, init_heading - psi]
         desired_states = [desired_x, desired_y, desired_velocity]
