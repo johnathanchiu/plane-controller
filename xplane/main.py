@@ -73,7 +73,7 @@ for i in range(10000):
         init_states = [x - true_init_x, z - true_init_z, gs, psi]
         desired_states = [desired_x, desired_y, desired_velocity]
 #        print("computing optimal trajectory/controls")
-        controls, success, msg = solve_states(init_states, desired_states, time_step, sim_time)
+        controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time guess_range=guess_range)
 #        print(success, msg)
         state = 0
 
