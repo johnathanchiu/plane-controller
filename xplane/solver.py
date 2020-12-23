@@ -37,9 +37,7 @@ def formulate_objective(init_states, desired_states, time_step=1, state_weight=0
     return objective
 
 
-def formulate_guess(sim_time, ts=1, random_seed=0):
-    if random_seed:
-        np.random.seed(random_seed)
+def formulate_guess(sim_time, guess_range):
     return np.random.randint(guess_range[0], guess_range[1], size=sim_time*2)
     
     
@@ -49,16 +47,17 @@ def solve_states(initial_states, desired_states, acceleration_constraint, turnin
     desired_x, desired_y, desired_velocity = desired_states
 
     state0 = [init_x, init_y, init_velocity, init_heading]
-    init_guess = formulate_guess(sim_time)
+    init_guess = formulate_guess(sim_time, guess_range)
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
 
     obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], time_step=time_step,
                               state_weight=1, constraint_weight=1, control_weight=0.5,
                               dstate_weight=10)
-
+    print(init_guess)
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.01, 'maxiter': 1000})
+    states = compute_states(initial_states, result.x, time_step=time_step)
                           
-    return get_controls(result.x), result.success, result.message
+    return get_controls(states), result.success, result.message
     

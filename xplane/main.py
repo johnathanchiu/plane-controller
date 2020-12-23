@@ -19,10 +19,6 @@ runway_heading = 54.331
 ### states setup ###
 
 init_heading = 90 # degrees
-init_velocity = 0 # m/s
-
-init_acceleration = 0 # m/s^2
-init_turning = 0 # degrees/s
 
 # start here at t = 0
 init_x = 0
@@ -30,9 +26,9 @@ init_y = 0
 
 # want to end here at t = sim_time
 desired_x = 0
-desired_y = 1000
+desired_y = 100
 
-desired_velocity = 60 # m/s
+desired_velocity = 10 # m/s
 
 acceleration_constraint = 5 # m/s^2
 turning_constraint = 5 # degrees
@@ -40,7 +36,7 @@ turning_constraint = 5 # degrees
 time_step = 1
 sim_time = 10
 
-guess_range = (0, 10)
+guess_range = (0, 2)
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -64,23 +60,28 @@ time.sleep(1)
 
 state = 0
 controls = None
-for i in range(10000):
+for i in range(100):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(control_dref + position_dref)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-    print(x - true_init_x, z - true_init_z, gs)
+    # removing runway heading to get solver heading
+    psi -= runway_heading 
+    print(x - true_init_x, z - true_init_z, gs, psi)
     
-    if i % 5 == 0:
-        init_states = [x - true_init_x, z - true_init_z, gs, psi]
+    if i % 2 == 0:
+        # add initial heading back to get solver coordinates
+        init_states = [x - true_init_x, z - true_init_z, gs, psi + init_heading]
         desired_states = [desired_x, desired_y, desired_velocity]
 #        print("computing optimal trajectory/controls")
-        controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time guess_range=guess_range)
+        controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time, guess_range=guess_range)
 #        print(success, msg)
         state = 0
 
     # send controls to xplane
     velocity, heading = controls[state]
     heading -= init_heading
-    heading_err = compute_heading_error(runway_heading + heading, psi)
+    print(velocity, heading)
+    # add psi to runway heading since we subtracted earlier for the solver
+    heading_err = compute_heading_error(runway_heading + heading, psi + runway_heading)
     control(xp_client, velocity, gs, throttle, heading_err)
     state += 1
 
