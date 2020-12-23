@@ -17,27 +17,30 @@ runway_end_y = 31956.02344
 runway_heading = 54.331
 
 ### states setup ###
-init_heading = 0 # degrees
+
+init_heading = 90 # degrees
 init_velocity = 0 # m/s
 
-# not used yet
-#init_acceleration = 0 # m/s^2
-#init_turning = 0 # degrees/s
+init_acceleration = 0 # m/s^2
+init_turning = 0 # degrees/s
 
 # start here at t = 0
 init_x = 0
 init_y = 0
 
-# desired end at t = sim_time
+# want to end here at t = sim_time
 desired_x = 0
-desired_y = 100
+desired_y = 1000
 
 desired_velocity = 60 # m/s
 
-time_step = 1
-sim_time = 5
+acceleration_constraint = 5 # m/s^2
+turning_constraint = 5 # degrees
 
-guess_range = (0, 3)
+time_step = 1
+sim_time = 10
+
+guess_range = (0, 10)
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -64,17 +67,19 @@ controls = None
 for i in range(10000):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(control_dref + position_dref)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
+    print(x - true_init_x, z - true_init_z, gs)
     
     if i % 5 == 0:
         init_states = [x - true_init_x, z - true_init_z, gs, psi]
         desired_states = [desired_x, desired_y, desired_velocity]
-        print("computing optimal trajectory/controls")
+#        print("computing optimal trajectory/controls")
         controls, success, msg = solve_states(init_states, desired_states, time_step, sim_time)
-        print(success, msg)
+#        print(success, msg)
         state = 0
 
     # send controls to xplane
     velocity, heading = controls[state]
+    heading -= init_heading
     heading_err = compute_heading_error(runway_heading + heading, psi)
     control(xp_client, velocity, gs, throttle, heading_err)
     state += 1
