@@ -49,9 +49,9 @@ control_dref = [groundspeed_dref, heading_dref, throttle_dref]
 ### initialize starting states ###
 
 init_x, _, init_z = xp_client.getDREFs(position_dref)
-init_x, init_z = true_init_x[0], true_init_z[0]
+init_x, init_z = init_x[0], init_z[0]
 
-init_heading = xp_client.getDREF(heading_dref)
+init_heading = xp_client.getDREF(heading_dref)[0]
 # add true north heading
 init_heading += xplane_zero_heading
 
@@ -68,13 +68,13 @@ time.sleep(1)
 
 state = 1
 controls = None
-for i in range(20):
+for i in range(1000):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(control_dref + position_dref)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
     
     if i % 5 == 0:
         init_states = [x - init_x, z - init_z, gs, psi + xplane_zero_heading]
-        desired_states = [desired_x, desired_y, desired_velocity]
+        desired_states = [desired_x, desired_z, desired_velocity]
 #        print("computing optimal trajectory/controls")
         controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time, guess_range=guess_range)
 #        print(success, msg)
