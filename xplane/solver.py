@@ -18,6 +18,14 @@ def compute_states(init_state, controls, time_step=1):
         v += a * time_step
         h += w * time_step
     return states
+    
+
+def rejection_dist(desired_x, desired_y, curr_x, curr_y):
+    a = np.array([desired_x, desired_y])
+    b = np.array([curr_x, curr_y])
+    projection = a@b / np.linalg.norm(a, ord=2)**2 * a
+    proj_x, proj_y = projection
+    return np.linalg.norm([curr_x - proj_x, curr_y - proj_y], ord=2) ** 2
 
 
 def formulate_objective(init_states, desired_states, time_step=1, state_weight=0.1,
@@ -28,7 +36,8 @@ def formulate_objective(init_states, desired_states, time_step=1, state_weight=0
         cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
         for i in range(6, len(states) - 6, 6):
             px, py, v, h, a, w = states[i:i+6]
-            cost += constraint_weight * np.linalg.norm([px], ord=2) ** 2
+            # closest centerline point
+            cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
             cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
             cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py, desired_v - v]), ord=2)
         px, py, v, h, a, w = states[-6:]

@@ -10,25 +10,21 @@ import time
 import sys
 
 ### runway setup ###
-runway_origin_x = -25163.9477
-runway_origin_y = 33693.3450
+
+#runway_origin_x = -25163.9477
+#runway_origin_z = 33693.3450
+
 runway_end_x = -22742.57617
-runway_end_y = 31956.02344
+runway_end_z = 31956.02344
+
 runway_heading = 54.331
 
 ### states setup ###
 
-init_heading = 90 # degrees
+# true north is 270 degrees in unit circle coordinates
+xplane_zero_heading = 270
 
-# start here at t = 0
-init_x = 0
-init_y = 0
-
-# want to end here at t = sim_time
-desired_x = 0
-desired_y = 1000
-
-desired_velocity = 10 # m/s
+desired_velocity = 30 # m/s
 
 acceleration_constraint = 7 # m/s^2
 turning_constraint = 10 # degrees
@@ -41,7 +37,7 @@ guess_range = (0, 3)
 # create XPC object
 xp_client = XPlaneConnect()
 
-# datarefs
+# datarefs #
 groundspeed_dref = "sim/flightmodel/position/groundspeed"           # m/s
 heading_dref = "sim/flightmodel/position/psi"                       # in degrees
 throttle_dref = "sim/flightmodel/engine/ENGN_thro"
@@ -50,8 +46,20 @@ position_dref = ["sim/flightmodel/position/local_x",
                  "sim/flightmodel/position/local_z"]
 control_dref = [groundspeed_dref, heading_dref, throttle_dref]
 
-true_init_x, _, true_init_z = xp_client.getDREFs(position_dref)
-true_init_x, true_init_z = true_init_x[0], true_init_z[0]
+### initialize starting states ###
+
+init_x, _, init_z = xp_client.getDREFs(position_dref)
+init_x, init_z = true_init_x[0], true_init_z[0]
+
+init_heading = xp_client.getDREF(heading_dref)
+# add true north heading
+init_heading += xplane_zero_heading
+
+# want to end here at t = sim_time
+desired_x = runway_end_x - init_x
+desired_z = runway_end_z - init_z
+
+time.sleep(1)
 
 # release park brake
 xp_client.sendDREF("sim/flightmodel/controls/parkbrake", 0)
@@ -63,13 +71,9 @@ controls = None
 for i in range(20):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(control_dref + position_dref)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-    # removing runway heading to get solver heading
-    psi -= runway_heading 
     
     if i % 5 == 0:
-        # subtract psi from initial heading back to get solver coordinates (xplane left of 90 is negative heading)
-        # xplane positive z-axis points south
-        init_states = [x - true_init_x, true_init_z - z, gs, init_heading - psi]
+        init_states = [x - init_x, z - init_z, gs, psi + xplane_zero_heading]
         desired_states = [desired_x, desired_y, desired_velocity]
 #        print("computing optimal trajectory/controls")
         controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time, guess_range=guess_range)
@@ -79,9 +83,8 @@ for i in range(20):
     # send controls to xplane
     velocity, heading = controls[state]
     # remove solver orientation
-    heading -= init_heading
-    # add psi to runway heading since we subtracted earlier for the solver
-    heading_err = compute_heading_error(runway_heading + heading, psi + runway_heading)
+    heading -= xplane_zero_heading
+    heading_err = compute_heading_error(heading, psi)
     control(xp_client, velocity, gs, throttle, heading_err)
     state += 1
 
