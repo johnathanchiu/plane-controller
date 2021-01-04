@@ -47,7 +47,8 @@ def formulate_objective(init_states, desired_states, time_step=1, state_weight=0
 
 
 def formulate_guess(sim_time, guess_range):
-    return np.random.randint(guess_range[0], guess_range[1], size=sim_time*2)
+    #return np.random.randint(guess_range[0], guess_range[1], size=sim_time*2)
+    return np.ones(sim_time*2)
 
 
 def solve_states(initial_states, desired_states, acceleration_constraint, turning_constraint, time_step=1, sim_time=10, guess_range=(0, 3)):
