@@ -28,6 +28,8 @@ class PID:
         self.current_time = time.time()
         self.last_time = self.current_time
 
+        self.output = 0.0
+
     def update(self, feedback):
 
         error = feedback
@@ -63,7 +65,7 @@ def control(client, rudder, throttle):
     client.sendCTRL([0.0, 0.0, rudder, throttle])
 
 
-def compute_rudder(rudder_controller, desired_heading, real_heading):
+def compute_rudder(desired_heading, real_heading):
     heading_err = compute_heading_error(desired_heading, real_heading)*(np.pi/180)
     rudder = np.clip(heading_err, -1.0, 1.0)
     return rudder
@@ -72,14 +74,15 @@ def compute_rudder(rudder_controller, desired_heading, real_heading):
 def compute_throttle(throttle_controller, groundspeed, reference_speed):
     error = reference_speed - groundspeed
     throttle = throttle_controller.update(error)
-    throttle_input = np.clip(throttle, -0.2, 0.2)
+    throttle_input = np.clip(throttle, -0.5, 0.5)
     return throttle_input
 
 
 def apply_controls(client, controllers, controls, states):
-    throttle_controller, rudder_controller = controllers
+    throttle_controller = controllers
     heading_control, velocity_control = controls
-    gs, psi, throttle = states
-    rudder = compute_rudder(rudder_controller, heading_control, psi)
-    throttle = compute_throttle(throttle_controller, gs, velocity_control, throttle)
+    gs, psi = states
+    print(heading_control, psi)
+    rudder = compute_rudder(heading_control, psi)
+    throttle = compute_throttle(throttle_controller, gs, velocity_control)
     control(client, rudder, throttle)

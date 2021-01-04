@@ -1,8 +1,10 @@
 from solver import solve_states
-from controller import control, PID
+from controller import apply_controls, PID
+from definitions import XPlaneDefs
 
 from xpc import XPlaneConnect
 
+import numpy as np
 import math
 import time
 
@@ -33,6 +35,8 @@ num_steps = 10
 
 simulation_steps = 1000
 
+receding_horizon = 5
+
 # create XPC object
 xp_client = XPlaneConnect()
 
@@ -59,21 +63,20 @@ state, controls = 1, None
 throttle_controller = PID(1.0, 0.0, 3.0, 20.0, time_step)
 for t in range(simulation_steps):
     read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
-    gs, psi, throttle, x, _, z = np.squeeze(np.array(client.getDREFs(read_drefs)))
+    gs, psi, x, _, z = np.squeeze(np.array(xp_client.getDREFs(read_drefs)))
 
     if t % receding_horizon == 0:
         new_init_states = [x - init_x, z - init_z, gs, psi + XPlaneDefs.zero_heading]
         desired_states = [desired_x, desired_z, desired_velocity]
         controls, _, _ = solve_states(new_init_states, desired_states, acceleration_constraint,
-                                        turning_constraint, time_step=timestep, sim_time=sim_length)
+                                        turning_constraint, time_step=time_step, sim_time=num_steps)
         throttle_controller.clear()
         state = 1
-
-    # remove solver orientation to match XPlane orientation
-    heading -= XPlaneDef.zero_heading
+    
+    heading_control, velocity_control = controls[state]
+    heading_control -= XPlaneDefs.zero_heading
     # apply the controls from solver
-    apply_controls(xp_client, throttle_controller, controls[state],
-                    [gs, psi, throttle])
+    apply_controls(xp_client, throttle_controller, [heading_control, velocity_control], [gs, psi])
     state += 1
 
     time.sleep(time_step)
