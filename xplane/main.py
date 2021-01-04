@@ -62,6 +62,7 @@ time.sleep(1)
 
 controls = None
 throttle_controller = PID(1.0, 0.0, 3.0, 20.0, sample_time)
+rudder_controller = PID(1.0, 0.0, 3.0, 20.0, sample_time)
 for t in range(int(simulation_steps // receding_horizon)):
     read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
     gs, psi, x, _, z = np.squeeze(np.array(xp_client.getDREFs(read_drefs)))
@@ -70,6 +71,5 @@ for t in range(int(simulation_steps // receding_horizon)):
     desired_states = [desired_x, desired_z, desired_velocity]
     controls, _, _ = solve_states(new_init_states, desired_states, acceleration_constraint,
                                     turning_constraint, time_step=time_step, sim_time=num_steps)
-    throttle_controller.clear()
     controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
-    apply_controls(xp_client, throttle_controller, controls, sample_time, time_step, receding_horizon)
+    apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
