@@ -55,6 +55,7 @@ desired_z -= init_z
 
 time.sleep(1)
 
+xp_client.sendCOMM("sim/operation/fix_all_systems")
 # release park brake
 xp_client.sendDREF("sim/flightmodel/controls/parkbrake", 0)
 
