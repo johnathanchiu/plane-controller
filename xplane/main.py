@@ -1,6 +1,5 @@
-from geometry import compute_heading_error, quaternion_for
 from solver import solve_states
-from controller import control
+from controller import control, PID
 
 from xpc import XPlaneConnect
 
@@ -21,43 +20,33 @@ runway_heading = 54.331
 
 ### states setup ###
 
-# true north is 270 degrees in unit circle coordinates
-xplane_zero_heading = 270
+desired_x = runway_end_x
+desired_z = runway_end_z
 
-desired_velocity = 30 # m/s
+desired_velocity = 27 # m/s
 
 acceleration_constraint = 7 # m/s^2
 turning_constraint = 10 # degrees
 
 time_step = 1
-sim_time = 10
+num_steps = 10
 
-guess_range = (0, 3)
+simulation_steps = 1000
 
 # create XPC object
 xp_client = XPlaneConnect()
 
-# datarefs #
-groundspeed_dref = "sim/flightmodel/position/groundspeed"           # m/s
-heading_dref = "sim/flightmodel/position/psi"                       # in degrees
-throttle_dref = "sim/flightmodel/engine/ENGN_thro"
-position_dref = ["sim/flightmodel/position/local_x",
-                 "sim/flightmodel/position/local_y",
-                 "sim/flightmodel/position/local_z"]
-control_dref = [groundspeed_dref, heading_dref, throttle_dref]
-
 ### initialize starting states ###
 
-init_x, _, init_z = xp_client.getDREFs(position_dref)
-init_x, init_z = init_x[0], init_z[0]
+init_x, _, init_z = np.squeeze(np.array(xp_client.getDREFs(XPlaneDefs.position_dref)))
 
-init_heading = xp_client.getDREF(heading_dref)[0]
+init_heading = xp_client.getDREF(XPlaneDefs.heading_dref)[0]
 # add true north heading
-init_heading += xplane_zero_heading
+init_heading += XPlaneDefs.zero_heading
 
 # want to end here at t = sim_time
-desired_x = runway_end_x - init_x
-desired_z = runway_end_z - init_z
+desired_x -= init_x
+desired_z -= init_z
 
 time.sleep(1)
 
@@ -66,26 +55,25 @@ xp_client.sendDREF("sim/flightmodel/controls/parkbrake", 0)
 
 time.sleep(1)
 
-state = 1
-controls = None
-for i in range(1000):
-    gs, psi, throttle, x, _, z = xp_client.getDREFs(control_dref + position_dref)
-    gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-    
-    if i % 5 == 0:
-        init_states = [x - init_x, z - init_z, gs, psi + xplane_zero_heading]
+state, controls = 1, None
+throttle_controller = PID(1.0, 0.0, 3.0, 20.0, time_step)
+for t in range(simulation_steps):
+    read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
+    gs, psi, throttle, x, _, z = np.squeeze(np.array(client.getDREFs(read_drefs)))
+
+    if t % receding_horizon == 0:
+        new_init_states = [x - init_x, z - init_z, gs, psi + XPlaneDefs.zero_heading]
         desired_states = [desired_x, desired_z, desired_velocity]
-#        print("computing optimal trajectory/controls")
-        controls, success, msg = solve_states(init_states, desired_states, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=sim_time, guess_range=guess_range)
-#        print(success, msg)
+        controls, _, _ = solve_states(new_init_states, desired_states, acceleration_constraint,
+                                        turning_constraint, time_step=timestep, sim_time=sim_length)
+        throttle_controller.clear()
         state = 1
 
-    # send controls to xplane
-    velocity, heading = controls[state]
-    # remove solver orientation
-    heading -= xplane_zero_heading
-    heading_err = compute_heading_error(heading, psi)
-    control(xp_client, velocity, gs, throttle, heading_err)
+    # remove solver orientation to match XPlane orientation
+    heading -= XPlaneDef.zero_heading
+    # apply the controls from solver
+    apply_controls(xp_client, throttle_controller, controls[state],
+                    [gs, psi, throttle])
     state += 1
 
     time.sleep(time_step)
