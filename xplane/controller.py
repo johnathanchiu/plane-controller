@@ -84,8 +84,8 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
     for control in controls[:num_states]:
         velocity_control, heading_control = control
         t0 = time.time()
-	throttle_controller.clear()
-	rudder_controller.clear()
+        throttle_controller.clear()
+        rudder_controller.clear()
         while time.time() - t0 < time_step:
             gs, psi = np.squeeze(np.array(client.getDREFs(XPlaneDefs.control_dref)))
             rudder = compute_rudder(rudder_controller, heading_control, psi)
