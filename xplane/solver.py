@@ -3,8 +3,6 @@ import scipy.optimize as opt
 
 import random
 
-from defintions import XPlaneDefs
-
 
 get_controls = lambda x: [x[i+2:i+4] for i in range(0, len(x), 6)]
 
