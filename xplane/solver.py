@@ -3,6 +3,8 @@ import scipy.optimize as opt
 
 import random
 
+from defintions import XPlaneDefs
+
 
 get_controls = lambda x: [x[i+2:i+4] for i in range(0, len(x), 6)]
 
@@ -18,7 +20,7 @@ def compute_states(init_state, controls, time_step=1):
         v += a * time_step
         h += w * time_step
     return states
-    
+
 
 def rejection_dist(desired_x, desired_y, curr_x, curr_y):
     a = np.array([desired_x, desired_y])
@@ -48,8 +50,8 @@ def formulate_objective(init_states, desired_states, time_step=1, state_weight=0
 
 def formulate_guess(sim_time, guess_range):
     return np.random.randint(guess_range[0], guess_range[1], size=sim_time*2)
-    
-    
+
+
 def solve_states(initial_states, desired_states, acceleration_constraint, turning_constraint, time_step=1, sim_time=10, guess_range=(0, 3)):
 
     init_x, init_y, init_velocity, init_heading = initial_states
@@ -68,4 +70,3 @@ def solve_states(initial_states, desired_states, acceleration_constraint, turnin
                           options={'eps': 0.01, 'maxiter': 1000})
     states = compute_states(initial_states, result.x, time_step=time_step)
     return get_controls(states), result.success, result.message
-    
