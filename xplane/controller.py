@@ -3,7 +3,6 @@ from geometry import compute_heading_error
 import numpy as np
 import math
 
-
 import time
 
 class PID:
@@ -82,7 +81,6 @@ def apply_controls(client, controllers, controls, states):
     throttle_controller = controllers
     heading_control, velocity_control = controls
     gs, psi = states
-    print(heading_control, psi)
     rudder = compute_rudder(heading_control, psi)
     throttle = compute_throttle(throttle_controller, gs, velocity_control)
     control(client, rudder, throttle)

@@ -73,8 +73,9 @@ for t in range(simulation_steps):
         throttle_controller.clear()
         state = 1
     
-    heading_control, velocity_control = controls[state]
+    velocity_control, heading_control = controls[state]
     heading_control -= XPlaneDefs.zero_heading
+    print(heading_control)
     # apply the controls from solver
     apply_controls(xp_client, throttle_controller, [heading_control, velocity_control], [gs, psi])
     state += 1
