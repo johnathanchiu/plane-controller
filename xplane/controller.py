@@ -1,4 +1,5 @@
 from geometry import compute_heading_error
+from definitions import XPlaneDefs
 
 import numpy as np
 import math
@@ -60,14 +61,14 @@ class PID:
 
 
 
-def control(client, rudder, throttle):
+def set_control(client, rudder, throttle):
     client.sendCTRL([0.0, 0.0, rudder, throttle])
 
 
 def compute_rudder(desired_heading, real_heading):
-    heading_err = compute_heading_error(desired_heading, real_heading)*(np.pi/180)
-    rudder = np.clip(heading_err, -1.0, 1.0)
-    return rudder
+    heading_err = compute_heading_error(desired_heading, real_heading)
+    rudder_input = np.clip(heading_err*0.3, -1.0, 1.0)
+    return rudder_input
 
 
 def compute_throttle(throttle_controller, groundspeed, reference_speed):
@@ -86,5 +87,5 @@ def apply_controls(client, throttle_controller, controls, sample_time=0.1,
             gs, psi = np.squeeze(np.array(client.getDREFs(XPlaneDefs.control_dref)))
             rudder = compute_rudder(heading_control, psi)
             throttle = compute_throttle(throttle_controller, gs, velocity_control)
-            control(client, rudder, throttle)
+            set_control(client, rudder, throttle)
             time.sleep(sample_time)
