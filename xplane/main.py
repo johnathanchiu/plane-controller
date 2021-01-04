@@ -33,6 +33,7 @@ turning_constraint = 10 # degrees
 time_step = 1
 num_steps = 10
 
+sample_time = 0.1
 simulation_steps = 1000
 
 receding_horizon = 5
@@ -59,25 +60,18 @@ xp_client.sendDREF("sim/flightmodel/controls/parkbrake", 0)
 
 time.sleep(1)
 
-state, controls = 1, None
-throttle_controller = PID(1.0, 0.0, 3.0, 20.0, time_step)
+controls = None
+throttle_controller = PID(1.0, 0.0, 3.0, 20.0, sample_time)
 for t in range(simulation_steps):
-    read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
-    gs, psi, x, _, z = np.squeeze(np.array(xp_client.getDREFs(read_drefs)))
-
     if t % receding_horizon == 0:
+        read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
+        gs, psi, x, _, z = np.squeeze(np.array(xp_client.getDREFs(read_drefs)))
+
         new_init_states = [x - init_x, z - init_z, gs, psi + XPlaneDefs.zero_heading]
         desired_states = [desired_x, desired_z, desired_velocity]
         controls, _, _ = solve_states(new_init_states, desired_states, acceleration_constraint,
                                         turning_constraint, time_step=time_step, sim_time=num_steps)
         throttle_controller.clear()
-        state = 1
-    
-    velocity_control, heading_control = controls[state]
-    heading_control -= XPlaneDefs.zero_heading
-    print(heading_control)
-    # apply the controls from solver
-    apply_controls(xp_client, throttle_controller, [heading_control, velocity_control], [gs, psi])
-    state += 1
 
-    time.sleep(time_step)
+    controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
+    apply_controls(client, throttle_controller, controls, sample_time, time_step, receding_horizon)

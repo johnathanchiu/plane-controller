@@ -77,10 +77,14 @@ def compute_throttle(throttle_controller, groundspeed, reference_speed):
     return throttle_input
 
 
-def apply_controls(client, controllers, controls, states):
-    throttle_controller = controllers
-    heading_control, velocity_control = controls
-    gs, psi = states
-    rudder = compute_rudder(heading_control, psi)
-    throttle = compute_throttle(throttle_controller, gs, velocity_control)
-    control(client, rudder, throttle)
+def apply_controls(client, throttle_controller, controls, sample_time=0.1,
+                    time_step=1, num_states=5):
+    for control in controls[:num_states]:
+        velocity_control, heading_control = control
+        t0 = time.time()
+        while time.time() - t0 < time_step:
+            gs, psi = np.squeeze(np.array(client.getDREFs(XPlaneDefs.control_dref)))
+            rudder = compute_rudder(heading_control, psi)
+            throttle = compute_throttle(throttle_controller, gs, velocity_control)
+            control(client, rudder, throttle)
+            time.sleep(sample_time)
