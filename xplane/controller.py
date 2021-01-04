@@ -65,9 +65,9 @@ def set_control(client, rudder, throttle):
     client.sendCTRL([0.0, 0.0, rudder, throttle])
 
 
-def compute_rudder(desired_heading, real_heading):
+def compute_rudder(rudder_controller, desired_heading, real_heading):
     heading_err = compute_heading_error(desired_heading, real_heading)
-    rudder = rudder_controller.update(heading_error)
+    rudder = rudder_controller.update(heading_err)
     rudder_input = np.clip(rudder, -1.0, 1.0)
     return rudder_input
 
@@ -84,8 +84,6 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
     for control in controls[:num_states]:
         velocity_control, heading_control = control
         t0 = time.time()
-        throttle_controller.clear()
-        rudder_controller.clear()
         while time.time() - t0 < time_step:
             gs, psi = np.squeeze(np.array(client.getDREFs(XPlaneDefs.control_dref)))
             rudder = compute_rudder(rudder_controller, heading_control, psi)
