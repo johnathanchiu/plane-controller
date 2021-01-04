@@ -14,8 +14,8 @@ def quaternion_for(theta, phi, psi):
         -cos_psi * sin_theta * sin_phi + sin_psi * cos_theta * cos_phi
     ]
     return quaternion
-    
-    
+
+
 def compute_heading_error(desired, real):
     '''
     param desired: desired heading
