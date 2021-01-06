@@ -16,6 +16,9 @@ def quaternion_for(theta, phi, psi):
     return quaternion
 
 
+def kn_to_ms(knots):
+    return knots * 0.51444
+
 def compute_heading_error(desired, real):
     '''
     param desired: desired heading

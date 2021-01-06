@@ -10,4 +10,8 @@ class XPlaneDefs:
     position_dref = ["sim/flightmodel/position/local_x",
                      "sim/flightmodel/position/local_y",
                      "sim/flightmodel/position/local_z"]
-    control_dref = [groundspeed_dref, heading_dref]
+    condition_drefs = ["sim/weather/runway_friction",
+                   	   "sim/weather/wind_direction_degt[0]",
+                   	   "sim/weather/wind_speed_kt[0]"]
+
+    control_dref = [groundspeed_dref, heading_dref, throttle_dref]
