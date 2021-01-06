@@ -72,10 +72,10 @@ def compute_rudder(rudder_controller, desired_heading, real_heading):
     return rudder_input
 
 
-def compute_throttle(throttle_controller, groundspeed, reference_speed):
+def compute_throttle(throttle_controller, throttle, groundspeed, reference_speed):
     error = reference_speed - groundspeed
-    throttle = throttle_controller.update(error)
-    throttle_input = np.clip(throttle, -0.5, 0.5)
+    throttle_control = throttle_controller.update(error)
+    throttle_input = np.clip(throttle + throttle_control, 0.0, 0.5)
     return throttle_input
 
 
@@ -85,8 +85,9 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
         velocity_control, heading_control = control
         t0 = time.time()
         while time.time() - t0 < time_step:
-            gs, psi = np.squeeze(np.array(client.getDREFs(XPlaneDefs.control_dref)))
+            gs, psi, throttle = client.getDREFs(XPlaneDefs.control_dref)
+            gs, psi, throttle = gs[0], psi[0], throttle[0]
             rudder = compute_rudder(rudder_controller, heading_control, psi)
-            throttle = compute_throttle(throttle_controller, gs, velocity_control)
+            throttle = compute_throttle(throttle_controller, throttle, gs, velocity_control)
             set_control(client, rudder, throttle)
             time.sleep(sample_time)
