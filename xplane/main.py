@@ -31,6 +31,11 @@ desired_velocity = 27 # m/s
 acceleration_constraint = 10 # m/s^2
 turning_constraint = 30 # degrees
 
+plane_cs = 27.41 # square meters
+plane_mass = 6175 * 0.45359237 # lbs -> kg
+
+plane_specs = [plane_cs, plane_mass]
+
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
@@ -104,7 +109,7 @@ for t in range(int(simulation_steps // receding_horizon)):
     desired_states = [desired_x, desired_z, desired_velocity]
     winds = [wind_speed, (wind_direction + XPlaneDefs.zero_heading)]
 
-    controls, _, _ = solve_states(new_init_states, desired_states, winds, acceleration_constraint,
+    controls, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
     controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
     print(controls)
