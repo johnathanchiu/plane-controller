@@ -13,8 +13,8 @@ import sys
 
 ### runway setup ###
 
-#runway_origin_x = -25163.9477
-#runway_origin_z = 33693.3450
+runway_origin_x = -25163.9477
+runway_origin_z = 33693.3450
 
 runway_end_x = -22742.57617
 runway_end_z = 31956.02344
@@ -28,13 +28,13 @@ desired_z = runway_end_z
 
 desired_velocity = 27 # m/s
 
-acceleration_constraint = 7 # m/s^2
-turning_constraint = 60 # degrees
+acceleration_constraint = 10 # m/s^2
+turning_constraint = 30 # degrees
 
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
-num_steps = 7
+num_steps = 8
 
 # controller recompute time step
 sample_time = 0.1
@@ -42,7 +42,7 @@ sample_time = 0.1
 simulation_steps = 100
 
 # recompute using solver after t seconds
-receding_horizon = 5
+receding_horizon = 1
 
 
 # create XPC object
@@ -71,7 +71,9 @@ wind_direction -= 180
 
 ### initialize starting states ###
 
-init_x, _, init_z = np.squeeze(np.array(xp_client.getDREFs(XPlaneDefs.position_dref)))
+# init_x, _, init_z = np.squeeze(np.array(xp_client.getDREFs(XPlaneDefs.position_dref)))
+init_x = runway_origin_x
+init_z = runway_origin_z
 
 init_heading = xp_client.getDREF(XPlaneDefs.heading_dref)[0]
 # add true north heading
@@ -90,13 +92,13 @@ xp_client.sendDREF("sim/flightmodel/controls/parkbrake", 0)
 time.sleep(1)
 
 controls = None
-throttle_controller = PID(1.0, .0, 3.0, 10.0, sample_time)
-rudder_controller = PID(0.01, 1.5, 0.7, 10.0, sample_time)
+throttle_controller = PID(2.0, 0.0, 1.0, 10.0, sample_time)
+rudder_controller = PID(0.3, 0.5, 0.8, 10.0, sample_time)
 for t in range(int(simulation_steps // receding_horizon)):
     read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
     gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-
+    print(gs, psi)
     # TODO: add zero heading in solver
     new_init_states = [x - init_x, z - init_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
@@ -105,6 +107,7 @@ for t in range(int(simulation_steps // receding_horizon)):
     controls, _, _ = solve_states(new_init_states, desired_states, winds, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
     controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
+    print(controls)
     throttle_controller.clear()
     rudder_controller.clear()
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)

@@ -14,6 +14,7 @@ def compute_states(init_state, controls, environment, time_step=1):
     for i in range(0, len(controls), 2):
         a, w = controls[i:i+2]
         states = np.concatenate((states, [x, y, v, h, a, w]))
+        # TODO: scale by 1 / mass
         vx = (v * np.cos(np.radians(h))) + 0.01 * (wind_speed * np.cos(np.radians(wind_heading)))
         vy = (v * np.sin(np.radians(h))) + 0.01 * (wind_speed * np.sin(np.radians(wind_heading)))
         x += time_step * vx
@@ -52,27 +53,26 @@ def formulate_objective(init_states, desired_states, environment, time_step=1, s
     return objective
 
 
-def formulate_guess(sim_time, guess_range):
-    #return np.random.randint(guess_range[0], guess_range[1], size=sim_time*2)
+def formulate_guess(sim_time):
     return np.zeros((sim_time*2,))
 
 # TODO: remove `guess_range`
-def solve_states(initial_states, desired_states, extern_conditions, acceleration_constraint, turning_constraint, 
-                 time_step=1, sim_time=10, guess_range=(0, 3)):
+def solve_states(initial_states, desired_states, extern_conditions, acceleration_constraint, 
+                    turning_constraint, time_step=1, sim_time=10):
 
     init_x, init_y, init_velocity, init_heading = initial_states
     desired_x, desired_y, desired_velocity = desired_states
 
     state0 = [init_x, init_y, init_velocity, init_heading]
-    init_guess = formulate_guess(sim_time, guess_range)
+    init_guess = formulate_guess(sim_time)
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
 
     obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], extern_conditions,
-                              time_step=time_step, state_weight=1, constraint_weight=1, control_weight=0.5,
-                              dstate_weight=5, fvelocity_weight=5)
+                              time_step=time_step, state_weight=1, constraint_weight=1, control_weight=2,
+                              dstate_weight=5, fvelocity_weight=10)
 
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.01, 'maxiter': 1000})
     states = compute_states(initial_states, result.x, extern_conditions, time_step=time_step)
-    return get_controls(states), result.success, result.message
+    return get_controls(states)[1:], result.success, result.message

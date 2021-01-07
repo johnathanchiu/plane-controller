@@ -75,12 +75,14 @@ def compute_rudder(rudder_controller, desired_heading, real_heading):
 def compute_throttle(throttle_controller, throttle, groundspeed, reference_speed):
     error = reference_speed - groundspeed
     throttle_control = throttle_controller.update(error)
-    throttle_input = np.clip(throttle + throttle_control, 0.0, 0.5)
+    throttle_input = np.clip(throttle + throttle_control, 0.0, 0.4)
     return throttle_input
 
 
 def apply_controls(client, throttle_controller, rudder_controller, controls, sample_time=0.1,
                     time_step=1, num_states=5):
+    assert num_states <= len(controls), "Not enough controls to work with"
+    num_states = int(np.ceil(num_states))
     for control in controls[:num_states]:
         velocity_control, heading_control = control
         t0 = time.time()
