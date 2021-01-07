@@ -76,5 +76,5 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
 
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.01, 'maxiter': 1000})
-    states = compute_states(initial_states, result.x, extern_conditions, time_step=time_step)
+    states = compute_states(initial_states, result.x, extern_conditions, plane_specs, time_step=time_step)
     return get_controls(states)[1:], result.success, result.message

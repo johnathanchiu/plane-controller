@@ -62,8 +62,8 @@ params = scene.params
 wind_speed = scene.params['wind_speed']
 wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-wind_speed = 0
-wind_degrees = -40
+wind_speed = 20
+wind_degrees = 40
 wind_direction = runway_heading + wind_degrees
 wind_direction += 180 # wind is counter clockwise of true north
 
