@@ -62,7 +62,7 @@ class PID:
 
 
 def set_control(client, rudder, throttle):
-    client.sendCTRL([0.0, 0.0, rudder, throttle])
+    client.sendCTRL([0.0, rudder * 0.1, rudder, throttle])
 
 
 def compute_rudder(rudder_controller, desired_heading, real_heading):

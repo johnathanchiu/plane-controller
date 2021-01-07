@@ -107,7 +107,7 @@ for t in range(int(simulation_steps // receding_horizon)):
     # TODO: add zero heading in solver
     new_init_states = [x - init_x, z - init_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
-    winds = [wind_speed, (wind_direction + XPlaneDefs.zero_heading)]
+    winds = [0, (wind_direction + XPlaneDefs.zero_heading)]
 
     controls, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
