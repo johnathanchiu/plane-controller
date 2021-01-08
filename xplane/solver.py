@@ -30,7 +30,7 @@ def rejection_dist(desired_x, desired_y, curr_x, curr_y):
     # TODO: fix polyline to start from an initial given point
     a = np.array([desired_x, desired_y])
     b = np.array([curr_x, curr_y])
-    projection = a@b / np.linalg.norm(a, ord=2)**2 * a
+    projection = a@b / np.linalg.norm(a, ord=2) ** 2 * a
     proj_x, proj_y = projection
     return np.linalg.norm([curr_x - proj_x, curr_y - proj_y], ord=2) ** 2
 
@@ -40,12 +40,12 @@ def formulate_objective(init_states, desired_states, environment, plane_specs, t
     desired_x, desired_y, desired_v = desired_states
     def objective(params):
         states = compute_states(init_states, params, environment, plane_specs, time_step=time_step)
-        cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
+        cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2
         for i in range(6, len(states) - 6, 6):
             px, py, v, h, a, w = states[i:i+6]
             # closest centerline point
             cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
-            cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
+            cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2)
             cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
             cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
         px, py, v, h, a, w = states[-6:]
