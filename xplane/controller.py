@@ -75,7 +75,7 @@ def compute_rudder(rudder_controller, desired_heading, real_heading):
 def compute_throttle(throttle_controller, throttle, groundspeed, reference_speed):
     error = reference_speed - groundspeed
     throttle_control = throttle_controller.update(error)
-    throttle_input = np.clip(throttle + throttle_control, 0.0, 0.4)
+    throttle_input = np.clip(throttle + throttle_control, 0.0, 0.7)
     return throttle_input
 
 
