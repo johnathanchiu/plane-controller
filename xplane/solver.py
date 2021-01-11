@@ -40,7 +40,7 @@ def formulate_objective(init_states, desired_states, environment, plane_specs, t
     desired_x, desired_y, desired_v = desired_states
     def objective(params):
         states = compute_states(init_states, params, environment, plane_specs, time_step=time_step)
-        cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2
+        cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2)
         for i in range(6, len(states) - 6, 6):
             px, py, v, h, a, w = states[i:i+6]
             # closest centerline point
