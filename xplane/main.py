@@ -1,5 +1,5 @@
 from solver import solve_states
-from controller import apply_controls, PID
+from controller import apply_controls, takeoff, PID
 from definitions import XPlaneDefs
 from geometry import kn_to_ms
 
@@ -49,18 +49,19 @@ simulation_steps = 100
 # recompute using solver after t seconds
 receding_horizon = 1
 
+TAKEOFF = True
 
 # create XPC object
 xp_client = XPlaneConnect()
 
 ### Scenic program setup ###
-sampler = translator.scenarioFromFile('conditions.sc')
-scene, _ = sampler.generate()
+# sampler = translator.scenarioFromFile('conditions.sc')
+# scene, _ = sampler.generate()
 
-params = scene.params
+# params = scene.params
 
-wind_speed = scene.params['wind_speed']
-wind_direction = scene.params['wind_direction']
+# wind_speed = scene.params['wind_speed']
+# wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
 wind_speed = 0
 wind_degrees = 40
@@ -103,6 +104,9 @@ for t in range(int(simulation_steps // receding_horizon)):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
     print(gs, psi)
+    if TAKEOFF and gs > desired_velocity and abs(psi - runway_heading) < 10:
+        takeoff(xp_client)
+        break
     # TODO: add zero heading in solver
     new_init_states = [x - origin_x, z - origin_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
@@ -114,3 +118,5 @@ for t in range(int(simulation_steps // receding_horizon)):
     throttle_controller.clear()
     rudder_controller.clear()
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
+
+
