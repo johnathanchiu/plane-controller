@@ -49,7 +49,7 @@ simulation_steps = 100
 # recompute using solver after t seconds
 receding_horizon = 1
 
-TAKEOFF = True
+TAKEOFF = False
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -63,7 +63,7 @@ xp_client = XPlaneConnect()
 # wind_speed = scene.params['wind_speed']
 # wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-wind_speed = 0
+wind_speed = 20
 wind_degrees = 40
 wind_direction = runway_heading + wind_degrees
 wind_direction += 180 # wind is counter clockwise of true north
@@ -98,7 +98,7 @@ time.sleep(1)
 
 controls = None
 throttle_controller = PID(2.0, 0.0, 1.0, 10.0, sample_time)
-rudder_controller = PID(0.3, 0.5, 0.8, 10.0, sample_time)
+rudder_controller = PID(0.1, 0.5, 0.8, 10.0, sample_time)
 for t in range(int(simulation_steps // receding_horizon)):
     read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
     gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)

@@ -61,18 +61,18 @@ class PID:
 
 
 
-def set_control(client, rudder, throttle):
-    client.sendCTRL([0.0, rudder * 0.1, rudder, throttle])
+def set_control(client, aileron, rudder, throttle):
+    client.sendCTRL([0.0, aileron, rudder, throttle])
 
 
 def compute_rudder(rudder_controller, ground_speed, desired_heading, real_heading):
     heading_err = compute_heading_error(desired_heading, real_heading)
     rudder = rudder_controller.update(heading_err)
     rudder_input = np.clip(rudder, -1.0, 1.0)
-    denom = ground_speed
-    if abs(denom) == 0:
+    denom = ground_speed * 0.05
+    if abs(denom) < 1:
         denom = 1
-    return rudder_input / denom
+    return rudder_input / denom, rudder_input * 0.4
 
 
 def compute_throttle(throttle_controller, throttle, groundspeed, reference_speed):
@@ -92,9 +92,9 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
         while time.time() - t0 < time_step:
             gs, psi, throttle = client.getDREFs(XPlaneDefs.control_dref)
             gs, psi, throttle = gs[0], psi[0], throttle[0]
-            rudder = compute_rudder(rudder_controller, gs, heading_control, psi)
+            rudder, aileron = compute_rudder(rudder_controller, gs, heading_control, psi)
             throttle = compute_throttle(throttle_controller, throttle, gs, velocity_control)
-            set_control(client, rudder, throttle)
+            set_control(client, aileron, rudder, throttle)
             time.sleep(sample_time)
 
 
