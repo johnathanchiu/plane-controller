@@ -34,7 +34,7 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
         y += time_step * vy
 
         wind_torque = plane_half_length * wind_force * np.sin(np.radians(wind_heading - h))
-        wind_w = 1.0 * time_step * (wind_torque / plane_mass) * plane_half_length  
+        wind_w = time_step * (wind_torque / plane_mass) * plane_half_length  
 
         v += time_step * a
         h += time_step * (w + wind_w)

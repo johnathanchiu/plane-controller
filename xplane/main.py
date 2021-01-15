@@ -29,7 +29,7 @@ desired_z = runway_end_z
 desired_velocity = 50 # m/s
 
 acceleration_constraint = 10 # m/s^2
-turning_constraint = 20 # degrees
+turning_constraint = 40 # degrees
 
 plane_cs = 27.41 # square meters
 plane_mass = 6175 * 0.45359237 # lbs -> kg
@@ -65,7 +65,7 @@ xp_client = XPlaneConnect()
 # wind_speed = scene.params['wind_speed']
 # wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-wind_speed = 30
+wind_speed = 0
 wind_degrees = 40
 wind_direction = runway_heading + wind_degrees 
 xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right

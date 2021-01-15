@@ -69,7 +69,7 @@ def compute_rudder(rudder_controller, ground_speed, desired_heading, real_headin
     heading_err = compute_heading_error(desired_heading, real_heading)
     rudder = rudder_controller.update(heading_err)
     rudder_input = np.clip(rudder, -1.0, 1.0)
-    denom = ground_speed * 0.05
+    denom = ground_speed * 0.07
     if abs(denom) < 1:
         denom = 1
     return rudder_input / denom, rudder_input * 0.3
