@@ -39,19 +39,21 @@ def formulate_objective(init_states, desired_states, environment, plane_specs, t
                         control_weight=0.1, constraint_weight=0.1, dstate_weight=0.001, fvelocity_weight=1.0):
     desired_x, desired_y, desired_v = desired_states
     def objective(params):
-        states = compute_states(init_states, params, environment, plane_specs, time_step=time_step)
-        cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2)
-        for i in range(6, len(states) - 6, 6):
-            px, py, v, h, a, w = states[i:i+6]
-            # closest centerline point
-            cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
-            cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2)
-            cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
+        cost = 0
+        for env in environment:
+            states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
+            cost += control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
+            for i in range(6, len(states) - 6, 6):
+                px, py, v, h, a, w = states[i:i+6]
+                # closest centerline point
+                cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
+                cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
+                cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
+                cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
+            px, py, v, h, a, w = states[-6:]
+            cost += dstate_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
             cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-        px, py, v, h, a, w = states[-6:]
-        cost += dstate_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
-        cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-        return cost
+        return cost / len(environment)
     return objective
 
 

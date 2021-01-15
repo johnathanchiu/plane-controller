@@ -75,6 +75,16 @@ wind_speed = kn_to_ms(wind_speed)
 wind_direction += -2 * wind_degrees # since positive rotation is the right
 wind_direction -= 180
 
+num_environment_samples = 10
+windspeed_lb = 10
+windspeed_ub = 30
+windheading_lb = wind_direction - 30
+windheading_ub = wind_direction + 30
+
+winds = [(wind_speed, (wind_direction + XPlaneDefs.zero_heading))]
+for _ in range(num_environment_samples - 1):
+    winds.append((np.random.randint(windspeed_lb, windspeed_ub + 1), np.random.randint(windheading_lb, windheading_ub + 1) + XPlaneDefs.zero_heading))
+
 ### initialize starting states ###
 
 origin_x = runway_origin_x
@@ -110,7 +120,6 @@ for t in range(int(simulation_steps // receding_horizon)):
     # TODO: add zero heading in solver
     new_init_states = [x - origin_x, z - origin_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
-    winds = [0, (wind_direction + XPlaneDefs.zero_heading)]
 
     controls, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
