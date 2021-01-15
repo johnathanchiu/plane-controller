@@ -4,15 +4,27 @@ import scipy.optimize as opt
 import random
 
 
-get_controls = lambda x: [x[i+2:i+4] for i in range(0, len(x), 6)]
+get_states_controls = lambda x: [x[i+2:i+6] for i in range(0, len(x), 6)]
+
+def get_controls(states, time_step):
+    controls = []
+    prev_heading = states[0][1]
+    prev_velocity = states[0][0]
+    for state in states:
+        c_tup = (prev_velocity + state[-2] * time_step, prev_heading + state[-1] * time_step)
+        controls.append(c_tup)
+        prev_heading += state[-1]
+        prev_velocity += state[-2]
+    return controls
 
 
 def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1):
     states = []
     x, y, v, h = init_state
     wind_speed, wind_heading = wind_dynamics
-    plane_cs, plane_mass = plane_specs
-    wind_acc = wind_speed * plane_cs / plane_mass
+    plane_cs, plane_mass, plane_half_length = plane_specs
+    wind_force = wind_speed * plane_cs
+    wind_acc = wind_force / plane_mass
     for i in range(0, len(controls), 2):
         a, w = controls[i:i+2]
         states = np.concatenate((states, [x, y, v, h, a, w]))
@@ -20,8 +32,12 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
         vy = (v * np.sin(np.radians(h))) + (time_step * wind_acc * np.sin(np.radians(wind_heading)))
         x += time_step * vx
         y += time_step * vy
+
+        wind_torque = plane_half_length * wind_force * np.sin(np.radians(wind_heading - h))
+        wind_w = 1.0 * time_step * (wind_torque / plane_mass) * plane_half_length  
+
         v += time_step * a
-        h += time_step * w
+        h += time_step * (w + wind_w)
         h %= 360
     return states
 
@@ -73,10 +89,11 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
               (-turning_constraint, turning_constraint)] * sim_time
 
     obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], extern_conditions, plane_specs,
-                              time_step=time_step, state_weight=1, constraint_weight=1, control_weight=2,
+                              time_step=time_step, state_weight=1, constraint_weight=1, control_weight=0.01,
                               dstate_weight=5, fvelocity_weight=10)
 
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
-                          options={'eps': 0.01, 'maxiter': 1000})
-    states = compute_states(initial_states, result.x, extern_conditions, plane_specs, time_step=time_step)
-    return get_controls(states)[1:], result.success, result.message
+                          options={'eps': 0.01, 'maxiter': 500})
+    states = compute_states(initial_states, result.x, extern_conditions[0], plane_specs, time_step=time_step)
+    states = get_states_controls(states)
+    return get_controls(states, time_step), result.success, result.message
