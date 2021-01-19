@@ -93,7 +93,7 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
                               dstate_weight=5, fvelocity_weight=10)
 
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
-                          options={'eps': 0.01, 'maxiter': 500})
+                          options={'eps': 0.01, 'maxiter': 100})
     states = compute_states(initial_states, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
     return get_controls(states, time_step), result.success, result.message
