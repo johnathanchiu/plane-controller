@@ -85,7 +85,6 @@ def compute_throttle(throttle_controller, throttle, groundspeed, reference_speed
 def apply_controls(client, throttle_controller, rudder_controller, controls, sample_time=0.1,
                     time_step=1, num_states=5):
     assert num_states <= len(controls), "Not enough controls to work with"
-    num_states = int(np.ceil(num_states))
     for control in controls[:num_states]:
         velocity_control, heading_control = control
         throttle_controller.clear()

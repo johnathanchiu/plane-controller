@@ -1,6 +1,9 @@
 import numpy as np
 import math
 
+from definitions import XPlaneDefs
+
+
 # compute quaternion for main plane pitch, roll, heading
 def quaternion_for(theta, phi, psi):
     # (conversion math from http://www.xsquawkbox.net/xpsdk/mediawiki/MovingThePlane)
@@ -19,6 +22,7 @@ def quaternion_for(theta, phi, psi):
 def kn_to_ms(knots):
     return knots * 0.51444
 
+
 def compute_heading_error(desired, real):
     '''
     param desired: desired heading
@@ -32,3 +36,20 @@ def compute_heading_error(desired, real):
     if phi > 180:
         return (360 - phi) * sign
     return phi * sign
+
+
+def rotate(x, y, angle):
+    return [x * np.cos(np.radians(angle)) - y * np.sin(np.radians(angle)),
+            x * np.sin(np.radians(angle)) + y * np.cos(np.radians(angle))]
+
+
+def solver_heading(angle):
+    return angle + XPlaneDefs.zero_heading
+    
+
+def true_heading(angle):
+    return angle - XPlaneDefs.zero_heading
+    
+
+def fix_heading(angle):
+    return ((h % 360) + 360) % 360
