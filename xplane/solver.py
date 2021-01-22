@@ -54,7 +54,9 @@ def rejection_dist(desired_x, desired_y, curr_x, curr_y):
     
 
 def cost_sum(wrapped_args):
-    init_state, controls, wind_dynamics, plane_specs, time_step = wrapped_args
+    state_weight, control_weight, constraint_weight, dstate_weight, fvelocity_weight = 0.1, 0.1, 0.1, 0.001, 1.0
+    init_states, desired_states, params, env, plane_specs, time_step = wrapped_args
+    desired_x, desired_y, desired_v = desired_states
     states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
     cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
     for i in range(6, len(states) - 6, 6):
@@ -74,25 +76,27 @@ def formulate_objective(init_states, desired_states, environment, plane_specs, t
                         control_weight=0.1, constraint_weight=0.1, dstate_weight=0.001, fvelocity_weight=1.0):
     desired_x, desired_y, desired_v = desired_states
     def objective(params):
-        with Pool(8) as p:
-            wrap_args = (init_states, params, env, plane_specs, time_step)
-            cost = sum(p.map(cost_sum, wrap_args))
+        # wrap_args = []
+        # for env in environment:
+        #     wrap_args.append((init_states, desired_states, params, env, plane_specs, time_step))
+        # with Pool(16) as p:
+        #     cost = sum(p.map(cost_sum, wrap_args))
+        # return cost / len(environment)
+        cost = 0
+        for env in environment:
+            states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
+            cost += control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
+            for i in range(6, len(states) - 6, 6):
+                px, py, v, h, a, w = states[i:i+6]
+                # closest centerline point
+                cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
+                cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
+                cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
+                cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
+            px, py, v, h, a, w = states[-6:]
+            cost += dstate_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
+            cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
         return cost / len(environment)
-#        cost = 0
-#        for env in environment:
-#            states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
-#            cost += control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
-#            for i in range(6, len(states) - 6, 6):
-#                px, py, v, h, a, w = states[i:i+6]
-#                # closest centerline point
-#                cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
-#                cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
-#                cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
-#                cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-#            px, py, v, h, a, w = states[-6:]
-#            cost += dstate_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
-#            cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-#        return cost / len(environment)
     return objective
 
 
