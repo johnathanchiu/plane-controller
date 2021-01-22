@@ -1,23 +1,37 @@
 from controller import apply_controls, takeoff, PID
 from definitions import XPlaneDefs
-from geometry import kn_to_ms, rotate, true_heading,
+from geometry import kn_to_ms, rotate, true_heading, fix_heading
 
 from xpc import XPlaneConnect
 
 import numpy as np
 import random
+import pickle
 import math
 import time
 import sys
 
 
-# load lookup tables
-table = json.load(open("table.json"))
-grid = json.load(open("grid.json" ))
+def confine_bins(value, bins):
+    for lower_bin in range(bins[0], bins[1], bins[2]):
+        if lower_bin <= value < lower_bin + bins[2]:
+            return lower_bin
+    return np.clip(value, bins[0], bins[1] - bins[2])
 
+# load lookup tables
+table = pickle.load(open('table.pkl', 'rb'))
+grid = pickle.load(open('grid.pkl', 'rb'))
+
+ws_bound = 1
+wh_bound = 1
+
+velocity_bins = (0, 6, 1)
+heading_bins = (-30, 30, 5)
+
+ws_bins = (0, 6, ws_bound)
+wh_bins = (0, 6, wh_bound)
 
 TAKEOFF = False
-
  
 ### runway config ###
 
@@ -29,6 +43,11 @@ runway_end_z = 31956.02344
 
 runway_heading = 54.331
 
+# solver time step
+time_step = 1 # seconds
+# solver number of states to solve
+num_steps = 5
+
 # PID controller recompute time step
 sample_time = 0.1
 # number of seconds to run the PID controller + solver
@@ -38,17 +57,21 @@ receding_horizon = 1
 
 ### environment config ###
 
-wind_speed = 10
-wind_degrees = 20
+wind_speed = np.random.randint(ws_bins[0], ws_bins[1])
+wind_degrees = np.random.randint(wh_bins[0], wh_bins[1])
+
+print("Using (wind speed, wind heading):", wind_speed, wind_degrees)
+
 xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right
 xp_wind_direction += 180 # wind is counter clockwise of true north
 
 friction = 0
 
-xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wind_speed])
 
 # create XPC object
 xp_client = XPlaneConnect()
+
+xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wind_speed])
 
 ### initialize starting states ###
 
@@ -78,13 +101,19 @@ for t in range(int(simulation_steps // receding_horizon)):
         takeoff(xp_client)
         break
     
-    x, z = np.round(rotate(x, z, -(runway_heading + XPlaneDefs.zero_heading - 360)))
+    x -= origin_x
+    z -= origin_z
+    x, z = np.round(rotate(x, z, 360 - (runway_heading + XPlaneDefs.zero_heading)))
     x, z = int(x), int(z)
-    psi = int(np.round(psi))
-    gs = fix_heading(int(np.round(gs)))
+
+    psi = confine_bins(psi, heading_bins)
+    gs = confine_bins(gs, velocity_bins)
+    wind_speed = confine_bins(wind_speed, ws_bins)
+    wind_degrees = confine_bins(wind_degrees, wh_bins) 
+
+    print((gs, psi, wind_speed, wind_degrees))
     
     grid_no = grid[(x, z)]
     controls = table[grid_no][(gs, psi, wind_speed, wind_degrees)]
 
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
-
