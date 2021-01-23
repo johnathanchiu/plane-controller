@@ -40,7 +40,7 @@ plane_specs = [plane_cs, plane_mass, plane_half_length]
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
-num_steps = 5
+num_steps = 3
 
 # PID controller recompute time step
 sample_time = 0.1
@@ -51,7 +51,7 @@ simulation_steps = 100
 receding_horizon = 1
 
 TAKEOFF = False
-SAMPLE = True
+SAMPLE = False
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -65,8 +65,8 @@ xp_client = XPlaneConnect()
 # wind_speed = scene.params['wind_speed']
 # wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-wind_speed = 10
-wind_degrees = 40
+wind_speed = 3
+wind_degrees = 2
 wind_direction = runway_heading + wind_degrees 
 xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right
 xp_wind_direction += 180 # wind is counter clockwise of true north
@@ -76,11 +76,11 @@ xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wi
 
 wind_speed = kn_to_ms(wind_speed)
 
-num_environment_samples = 3
-windspeed_lb = wind_speed - 1
-windspeed_ub = wind_speed + 1
-windheading_lb = wind_direction - 1
-windheading_ub = wind_direction + 1
+num_environment_samples = 50
+windspeed_lb = wind_speed - 10
+windspeed_ub = wind_speed + 10
+windheading_lb = wind_direction - 30
+windheading_ub = wind_direction + 30
 
 ### initialize starting states ###
 
@@ -122,7 +122,7 @@ for t in range(int(simulation_steps // receding_horizon)):
             winds.append((np.random.randint(windspeed_lb, windspeed_ub + 1), 
                           np.random.randint(windheading_lb, windheading_ub + 1) + XPlaneDefs.zero_heading))
 
-    controls, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
+    controls, _, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
     controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
