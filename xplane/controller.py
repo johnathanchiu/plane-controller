@@ -101,5 +101,23 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
             time.sleep(sample_time)
 
 
+def apply_lookup_controls(client, throttle_controller, rudder_controller, controls, sample_time=0.1, time_step=1):
+    assert time_step <= len(controls), "Not enough controls to work with"
+    for control in controls[:1]:
+        velocity_control, heading_control = control
+        throttle_controller.clear()
+        rudder_controller.clear()
+        t0 = time.time()
+        while time.time() - t0 < time_step:
+            gs, psi, throttle = client.getDREFs(XPlaneDefs.control_dref)
+            gs, psi, throttle = gs[0], psi[0], throttle[0]
+            print("current state:", psi, gs)
+            print("desired_state:", heading_control, velocity_control)
+            rudder, aileron = compute_rudder(rudder_controller, gs, heading_control, psi)
+            throttle = compute_throttle(throttle_controller, throttle, gs, velocity_control)
+            set_control(client, aileron, rudder, throttle)
+            time.sleep(sample_time)
+
+
 def takeoff(client):
     client.sendCTRL([0.8, 0.0, 0.0, 1.0])
