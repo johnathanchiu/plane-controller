@@ -1,4 +1,4 @@
-from controller import apply_controls, takeoff, PID
+from controller import apply_lookup_controls, takeoff, PID
 from definitions import XPlaneDefs
 from geometry import kn_to_ms, rotate, true_heading, fix_heading
 
@@ -26,7 +26,7 @@ ws_bound = 1
 wh_bound = 1
 
 velocity_bins = (0, 6, 1)
-heading_bins = (-30, 30, 5)
+heading_bins = (-30, 30, 4)
 
 ws_bins = (0, 6, ws_bound)
 wh_bins = (0, 6, wh_bound)
@@ -43,22 +43,19 @@ runway_end_z = 31956.02344
 
 runway_heading = 54.331
 
-# solver time step
-time_step = 1 # seconds
-# solver number of states to solve
-num_steps = 5
-
 # PID controller recompute time step
 sample_time = 0.1
 # number of seconds to run the PID controller + solver
 simulation_steps = 100
 # recompute using solver after t seconds
-receding_horizon = 1
+receding_horizon = 1 / 4
 
 ### environment config ###
 
 wind_speed = np.random.randint(ws_bins[0], ws_bins[1])
 wind_degrees = np.random.randint(wh_bins[0], wh_bins[1])
+wind_speed = 0
+wind_degrees = 0
 
 print("Using (wind speed, wind heading):", wind_speed, wind_degrees)
 
@@ -106,14 +103,14 @@ for t in range(int(simulation_steps // receding_horizon)):
     x, z = np.round(rotate(x, z, 360 - (runway_heading + XPlaneDefs.zero_heading)))
     x, z = int(x), int(z)
 
-    psi = confine_bins(psi, heading_bins)
+    psi = confine_bins(psi - runway_heading, heading_bins)
     gs = confine_bins(gs, velocity_bins)
     wind_speed = confine_bins(wind_speed, ws_bins)
     wind_degrees = confine_bins(wind_degrees, wh_bins) 
 
-    print((gs, psi, wind_speed, wind_degrees))
+    print("(gs, heading, ws, wh)", (gs, psi, wind_speed, wind_degrees))
     
     grid_no = grid[(x, z)]
-    controls = table[grid_no][(gs, psi, wind_speed, wind_degrees)]
+    controls, cost = table[grid_no][(gs, psi, wind_speed, wind_degrees)]
 
-    apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
+    apply_lookup_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, receding_horizon)

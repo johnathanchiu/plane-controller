@@ -10,8 +10,14 @@ import pickle
 
 ### runway setup ###
 
-runway_end_x = 2421
-runway_end_z = -1737
+runway_origin_x = -25163.9477
+runway_origin_z = 33693.3450
+
+runway_end_x = -22742.57617
+runway_end_z = 31956.02344
+
+runway_end_x -= runway_origin_x
+runway_end_z -= runway_origin_z
 
 runway_start_x = 0
 runway_start_z = 0
@@ -44,7 +50,7 @@ desired_states = [desired_x, desired_z, desired_velocity]
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
-num_steps = 5 # seconds
+num_steps = 2 # seconds
 
 ### sampling config ###
 
@@ -52,7 +58,7 @@ ws_bound = 1
 wh_bound = 1
 
 velocity_bins = (0, 6, 1)
-heading_bins = (-30, 30, 5)
+heading_bins = (-30, 30, 4)
 
 ws_bins = (0, 6, ws_bound)
 wh_bins = (0, 6, wh_bound)
@@ -105,7 +111,8 @@ def generate_control_lookup(box_dim):
     
     for i in range(runway_left, runway_right + leftover_x, stride_x):
         for j in range(runway_bot, runway_top + leftover_z, stride_z):
-            center_x, center_z = i + stride_x / 2, j + stride_z / 2
+            init_x, init_z = i + stride_x / 2, j + stride_z / 2
+            center_x, center_z = rotate(init_x, init_z, (runway_heading + XPlaneDefs.zero_heading - 360))
             # ITERATE THROUGH ALL COMBINATIONS OF INIT VELOCITY, INIT HEADING, WINDSPEEDS, WINDHEADINGS
             local_controls = {}
             count = 0
@@ -114,14 +121,13 @@ def generate_control_lookup(box_dim):
                     for ws in range(ws_bins[0], ws_bins[1], ws_bins[2]):
                         for wh in range(wh_bins[0], wh_bins[1], wh_bins[2]):
                             center_h, center_v = h + heading_bins[2] / 2, v + velocity_bins[2] / 2
-                            center_x, center_z = rotate(center_x, center_z, (runway_heading + XPlaneDefs.zero_heading - 360))
                             state0 = [center_x, center_z, center_v, solver_heading(center_h + runway_heading)]
                             # offset wind heading by runway heading
                             winds = sample_environments(ws, wh + runway_heading)
-                            controls, _, _ = solve_states(state0, desired_states, winds, plane_specs, acceleration_constraint,
+                            controls, _, _, cost = solve_states(state0, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
                             controls = [[c[0], true_heading(c[1])] for c in controls]
-                            local_controls[(v, h, ws, wh)] = controls
+                            local_controls[(v, h, ws, wh)] = (controls, cost)
                             print("finished!", count)
                             count += 1
             lookup_table[grid_no] = local_controls
