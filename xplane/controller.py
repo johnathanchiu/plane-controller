@@ -93,8 +93,8 @@ def apply_controls(client, throttle_controller, rudder_controller, controls, sam
         while time.time() - t0 < time_step:
             gs, psi, throttle = client.getDREFs(XPlaneDefs.control_dref)
             gs, psi, throttle = gs[0], psi[0], throttle[0]
-            print("current state:", psi, gs)
-            print("desired_state:", heading_control, velocity_control)
+            # print("current state:", psi, gs)
+            # print("desired_state:", heading_control, velocity_control)
             rudder, aileron = compute_rudder(rudder_controller, gs, heading_control, psi)
             throttle = compute_throttle(throttle_controller, throttle, gs, velocity_control)
             set_control(client, aileron, rudder, throttle)
