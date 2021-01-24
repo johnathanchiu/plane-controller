@@ -38,6 +38,15 @@ def compute_heading_error(desired, real):
     return phi * sign
 
 
+def rejection_dist(desired_x, desired_y, curr_x, curr_y):
+    # TODO: fix polyline to start from an initial given point
+    a = np.array([desired_x, desired_y])
+    b = np.array([curr_x, curr_y])
+    projection = a@b / np.linalg.norm(a, ord=2) ** 2 * a
+    proj_x, proj_y = projection
+    return np.linalg.norm([curr_x - proj_x, curr_y - proj_y], ord=2) ** 2
+
+
 def rotate(x, y, angle):
     return [x * np.cos(np.radians(angle)) - y * np.sin(np.radians(angle)),
             x * np.sin(np.radians(angle)) + y * np.cos(np.radians(angle))]
