@@ -1,6 +1,6 @@
 from solver import solve_states
 from definitions import XPlaneDefs
-from geometry import rotate, solver_heading, true_heading
+from geometry import rotate, solver_heading, true_heading, kn_to_ms
 
 import numpy as np
 import random
@@ -26,14 +26,14 @@ runway_heading = 54.331
 
 runway_width = 20 # * 2
 runway_extend_length = 5
-runway_end_decrease = 2850
+runway_end_decrease = 1000
 
 ### solver setup ###
 
 desired_x = runway_end_x
 desired_z = runway_end_z
 
-desired_velocity = 4.5 # m/s
+desired_velocity = 50 # m/s
 
 acceleration_constraint = 2 # m/s^2
 turning_constraint = 10 # degrees/s
@@ -57,11 +57,11 @@ num_steps = 2 # seconds
 ws_bound = 1
 wh_bound = 1
 
-velocity_bins = (0, 6, 1)
+velocity_bins = (0, 60, 3)
 heading_bins = (-30, 30, 4)
 
-ws_bins = (0, 6, ws_bound)
-wh_bins = (0, 6, wh_bound)
+ws_bins = (0, 5, ws_bound)
+wh_bins = (0, 5, wh_bound)
 
 box_dim=(40, 8)
 
@@ -108,7 +108,8 @@ def generate_control_lookup(box_dim):
     grid_search = {}
     lookup_table = {}
     grid_no = 0
-    
+
+    start = time.time()
     for i in range(runway_left, runway_right + leftover_x, stride_x):
         for j in range(runway_bot, runway_top + leftover_z, stride_z):
             init_x, init_z = i + stride_x / 2, j + stride_z / 2
@@ -123,12 +124,13 @@ def generate_control_lookup(box_dim):
                             center_h, center_v = h + heading_bins[2] / 2, v + velocity_bins[2] / 2
                             state0 = [center_x, center_z, center_v, solver_heading(center_h + runway_heading)]
                             # offset wind heading by runway heading
-                            winds = sample_environments(ws, wh + runway_heading)
+                            winds = sample_environments(kn_to_ms(ws), wh + runway_heading)
                             controls, _, _, cost = solve_states(state0, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
                             controls = [[c[0], true_heading(c[1])] for c in controls]
                             local_controls[(v, h, ws, wh)] = (controls, cost)
-                            print("finished!", count)
+                            if count % 1000 == 0:
+                                print("finished!", count)
                             count += 1
             lookup_table[grid_no] = local_controls
             # GENERATE GRID POINTS LOOK UP
@@ -136,17 +138,18 @@ def generate_control_lookup(box_dim):
                 for l in range(stride_z):
                     grid_search[(i + k, j + l)] = grid_no
             print("Finished Grid:", grid_no)
+            print("--- one grid completed %s seconds ---" % (time.time() - start))
             grid_no += 1            
     return grid_search, lookup_table
 
 print("Generating Controls Table...")
-start = time.time()
+# start = time.time()
 
 grids, table = generate_control_lookup(box_dim)
 
-print("--- %s seconds ---" % (time.time() - start))
+# print("--- %s seconds ---" % (time.time() - start))
 
 # save lookup table
-pickle.dump(table, open('table.pkl', 'wb'))
-pickle.dump(grids, open('grid.pkl', 'wb'))
+pickle.dump(table, open('table4.pkl', 'wb'))
+pickle.dump(grids, open('grid4.pkl', 'wb'))
 

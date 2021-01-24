@@ -1,7 +1,7 @@
 from solver import solve_states
 from controller import apply_controls, takeoff, PID
 from definitions import XPlaneDefs
-from geometry import kn_to_ms
+from geometry import kn_to_ms, rejection_dist, rotate
 
 from xpc import XPlaneConnect
 import scenic.syntax.translator as translator
@@ -28,8 +28,8 @@ desired_z = runway_end_z
 
 desired_velocity = 50 # m/s
 
-acceleration_constraint = 10 # m/s^2
-turning_constraint = 40 # degrees
+acceleration_constraint = 2 # m/s^2
+turning_constraint = 10 # degrees
 
 plane_cs = 27.41 # square meters
 plane_mass = 6175 * 0.45359237 # lbs -> kg
@@ -40,18 +40,20 @@ plane_specs = [plane_cs, plane_mass, plane_half_length]
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
-num_steps = 3
+num_steps = 5
 
 # PID controller recompute time step
 sample_time = 0.1
 # number of seconds to run the PID controller + solver
-simulation_steps = 100
+simulation_steps = 50
 
 # recompute using solver after t seconds
 receding_horizon = 1
 
-TAKEOFF = False
+TAKEOFF = True
 SAMPLE = False
+
+TAKEOFF_DIST = 250
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -65,27 +67,30 @@ xp_client = XPlaneConnect()
 # wind_speed = scene.params['wind_speed']
 # wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-wind_speed = 3
-wind_degrees = 2
+ws_bins = (0, 5, 1)
+wh_bins = (-5, 5, 1)
+
+wind_speed = np.random.randint(ws_bins[0], ws_bins[1])
+wind_degrees = np.random.randint(wh_bins[0], wh_bins[1])
+
 wind_direction = runway_heading + wind_degrees 
+
 xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right
 xp_wind_direction += 180 # wind is counter clockwise of true north
 
+print("Using (wind speed, wind heading):", wind_speed, wind_degrees)
+
 friction = 0
 xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wind_speed])
-
-wind_speed = kn_to_ms(wind_speed)
-
-num_environment_samples = 50
-windspeed_lb = wind_speed - 10
-windspeed_ub = wind_speed + 10
-windheading_lb = wind_direction - 30
-windheading_ub = wind_direction + 30
 
 ### initialize starting states ###
 
 origin_x = runway_origin_x
 origin_z = runway_origin_z
+
+start_x, start_y, start_z = xp_client.getDREFs(XPlaneDefs.position_dref)
+start_y = start_y[0]
+xp_client.sendDREFs(XPlaneDefs.position_dref, [origin_x, start_y, origin_z])
 
 init_heading = xp_client.getDREF(XPlaneDefs.heading_dref)[0]
 # add true north heading
@@ -106,21 +111,48 @@ time.sleep(1)
 controls = None
 throttle_controller = PID(2.0, 0.0, 1.0, 10.0, sample_time)
 rudder_controller = PID(0.3, 0.4, 1.5, 10.0, sample_time)
+
+cle = 0
+
+start = time.time()
 for t in range(int(simulation_steps // receding_horizon)):
+
+    if time.time() - start > 1:
+        wind_speed = np.random.randint(ws_bins[0], ws_bins[1])
+        wind_degrees = np.random.randint(wh_bins[0], wh_bins[1])
+
+        wind_direction = runway_heading + wind_degrees 
+
+        xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right
+        xp_wind_direction += 180 # wind is counter clockwise of true north
+
+        print("Using (wind speed, wind heading):", wind_speed, wind_degrees)
+
+        friction = 0
+
+        xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wind_speed])
+        start = time.time()
+
     read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
     gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-    if TAKEOFF and gs > desired_velocity and abs(psi - runway_heading) < 10:
+    d_x, d_z = rotate(x - origin_x, z - origin_z, -(runway_heading + XPlaneDefs.zero_heading - 360))
+    print("POSITION ON RUNWAY:", d_x, d_z)
+    if TAKEOFF and gs > desired_velocity and abs(psi - runway_heading) < 10 and \
+        d_x - TAKEOFF_DIST > 0:
         takeoff(xp_client)
         break
     # TODO: add zero heading in solver
     new_init_states = [x - origin_x, z - origin_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
-    winds = [(wind_speed, (wind_direction + XPlaneDefs.zero_heading))]
+    winds = [(kn_to_ms(wind_speed), (wind_direction + XPlaneDefs.zero_heading))]
     if SAMPLE:
         for _ in range(num_environment_samples - 1):
             winds.append((np.random.randint(windspeed_lb, windspeed_ub + 1), 
                           np.random.randint(windheading_lb, windheading_ub + 1) + XPlaneDefs.zero_heading))
+
+    cld = rejection_dist(desired_x, desired_z, x - origin_x, z - origin_z)
+    cle = max(cld, cle)
 
     controls, _, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
@@ -128,3 +160,6 @@ for t in range(int(simulation_steps // receding_horizon)):
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
 
 
+print("FINISHED!")
+print("Maximum Center Line Error (CLE):", np.sqrt(cle))
+print("HEADING:", psi - runway_heading)
