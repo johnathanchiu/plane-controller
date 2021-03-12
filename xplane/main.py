@@ -7,6 +7,7 @@ from xpc import XPlaneConnect
 import scenic.syntax.translator as translator
 
 import numpy as np
+import random
 import math
 import time
 import sys
@@ -40,7 +41,7 @@ plane_specs = [plane_cs, plane_mass, plane_half_length]
 # solver time step
 time_step = 1 # seconds
 # solver number of states to solve
-num_steps = 5
+num_steps = 4
 
 # PID controller recompute time step
 sample_time = 0.1
@@ -50,10 +51,13 @@ simulation_steps = 50
 # recompute using solver after t seconds
 receding_horizon = 1
 
+# number of environments to sample
+num_environment_samples = 100
+
 TAKEOFF = True
 SAMPLE = False
 
-TAKEOFF_DIST = 250
+TAKEOFF_DIST = 500
 
 # create XPC object
 xp_client = XPlaneConnect()
@@ -67,8 +71,8 @@ xp_client = XPlaneConnect()
 # wind_speed = scene.params['wind_speed']
 # wind_direction = scene.params['wind_direction']
 # friction = scene.params['friction']
-ws_bins = (0, 5, 1)
-wh_bins = (-5, 5, 1)
+ws_bins = (0, 10, 1)
+wh_bins = (-20, 20, 1)
 
 wind_speed = np.random.randint(ws_bins[0], ws_bins[1])
 wind_degrees = np.random.randint(wh_bins[0], wh_bins[1])
@@ -138,6 +142,7 @@ for t in range(int(simulation_steps // receding_horizon)):
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
     d_x, d_z = rotate(x - origin_x, z - origin_z, -(runway_heading + XPlaneDefs.zero_heading - 360))
     print("POSITION ON RUNWAY:", d_x, d_z)
+    start_time = time.time()
     if TAKEOFF and gs > desired_velocity and abs(psi - runway_heading) < 10 and \
         d_x - TAKEOFF_DIST > 0:
         takeoff(xp_client)
@@ -145,20 +150,19 @@ for t in range(int(simulation_steps // receding_horizon)):
     # TODO: add zero heading in solver
     new_init_states = [x - origin_x, z - origin_z, gs, psi + XPlaneDefs.zero_heading]
     desired_states = [desired_x, desired_z, desired_velocity]
-    winds = [(kn_to_ms(wind_speed), (wind_direction + XPlaneDefs.zero_heading))]
+    winds = [[kn_to_ms(wind_speed), (wind_direction + XPlaneDefs.zero_heading)]]
     if SAMPLE:
-        for _ in range(num_environment_samples - 1):
-            winds.append((np.random.randint(windspeed_lb, windspeed_ub + 1), 
-                          np.random.randint(windheading_lb, windheading_ub + 1) + XPlaneDefs.zero_heading))
+        winds = np.concatenate((winds, np.column_stack((np.random.randint(ws_bins[0], ws_bins[1] + 1, size=num_environment_samples), 
+                                np.random.randint(wh_bins[0], wh_bins[1] + 1, size=num_environment_samples) + XPlaneDefs.zero_heading))))
 
     cld = rejection_dist(desired_x, desired_z, x - origin_x, z - origin_z)
     cle = max(cld, cle)
 
     controls, _, _, _ = solve_states(new_init_states, desired_states, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
+    # print('----', time.time() - start_time, 'seconds (1) ----')
     controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
-
 
 print("FINISHED!")
 print("Maximum Center Line Error (CLE):", np.sqrt(cle))

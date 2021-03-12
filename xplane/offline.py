@@ -19,8 +19,8 @@ def confine_bins(value, bins):
     return np.clip(value, bins[0], bins[1] - bins[2])
 
 # load lookup tables
-table = pickle.load(open('tables/table8.pkl', 'rb'))
-grid = pickle.load(open('tables/grid8.pkl', 'rb'))
+table = pickle.load(open('tables/table4.pkl', 'rb'))
+grid = pickle.load(open('tables/grid4.pkl', 'rb'))
 
 ws_bound = 1
 wh_bound = 1
@@ -28,14 +28,14 @@ wh_bound = 1
 velocity_bins = (0, 60, 3)
 heading_bins = (-30, 30, 4)
 
-ws_bins = (0, 10, 1)
-wh_bins = (0, 30, 1)
+ws_bins = (0, 5, ws_bound)
+wh_bins = (0, 5, wh_bound)
 
 TAKEOFF = True
 
 desired_velocity = 50
 
-TAKEOFF_DIST = 250
+TAKEOFF_DIST = 500
  
 ### runway config ###
 

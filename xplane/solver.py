@@ -6,6 +6,7 @@ from multiprocessing import Pool
 from geometry import rejection_dist
 
 import random
+import time
 
 
 get_states_controls = lambda x: [x[i+2:i+6] for i in range(0, len(x), 6)]
@@ -30,7 +31,7 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
     wind_force = wind_speed * plane_cs
     wind_acc = wind_force / plane_mass
     for i in range(0, len(controls), 2):
-        a, w = controls[i:i+2]
+        a, w = controls[i], controls[i+1]
         states = np.concatenate((states, [x, y, v, h, a, w]))
         vx = (v * np.cos(np.radians(h))) + (time_step * wind_acc * np.cos(np.radians(wind_heading)))
         vy = (v * np.sin(np.radians(h))) + (time_step * wind_acc * np.sin(np.radians(wind_heading)))
@@ -46,33 +47,38 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
     return states
     
 
-# def cost_sum(wrapped_args):
-#     state_weight, control_weight, constraint_weight, dstate_weight, fvelocity_weight = 0.1, 0.1, 0.1, 0.001, 1.0
-#     init_states, desired_states, params, env, plane_specs, time_step = wrapped_args
-#     desired_x, desired_y, desired_v = desired_states
-#     states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
-#     cost = control_weight * np.linalg.norm(np.vstack([params[0], params[1]]), ord=2) ** 2
-#     for i in range(6, len(states) - 6, 6):
-#         px, py, v, h, a, w = states[i:i+6]
-#         # closest centerline point
-#         cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
-#         cost += control_weight * np.linalg.norm(np.vstack([a, w]), ord=2) ** 2
-#         cost += state_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
-#         cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-#     px, py, v, h, a, w = states[-6:]
-#     cost += dstate_weight * np.linalg.norm(np.vstack([desired_x - px, desired_y - py]), ord=2)
-#     cost += fvelocity_weight * np.linalg.norm([desired_v - v], ord=2)
-#     return cost
+def cost_sum(wrapped_args):
+
+    state_weight = 1
+    constraint_weight = 1
+    control_weight = 0.01
+    dstate_weight = 5
+    fvelocity_weight = 3
+
+    init_states, desired_states, params, env, plane_specs, time_step = wrapped_args
+    desired_x, desired_y, desired_v = desired_states
+    states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
+    # cost = control_weight * (params[0] ** 2 + params[1] ** 2) ** 2
+    cost = 0
+    for i in range(6, len(states) - 6, 6):
+        px, py, v, h, a, w = states[i:i+6]
+        # closest centerline point
+        cost += constraint_weight * rejection_dist(desired_x, desired_y, px, py)
+        # cost += control_weight * (a ** 2 + w ** 2) ** 2
+        # cost += state_weight * np.sqrt((desired_x - px) ** 2 + (desired_y - py) ** 2)
+        # cost += fvelocity_weight * abs(desired_v - v)
+    px, py, v, h, a, w = states[-6:]
+    cost += dstate_weight * np.sqrt((desired_x - px) ** 2 + (desired_y - py) ** 2)
+    cost += fvelocity_weight * abs(desired_v - v)
+    return cost
 
 
 def formulate_objective(init_states, desired_states, environment, plane_specs, time_step=1, state_weight=0.1,
                         control_weight=0.1, constraint_weight=0.1, dstate_weight=0.001, fvelocity_weight=1.0):
     desired_x, desired_y, desired_v = desired_states
     def objective(params):
-        # wrap_args = []
-        # for env in environment:
-        #     wrap_args.append((init_states, desired_states, params, env, plane_specs, time_step))
-        # with Pool(16) as p:
+        # wrap_args = [(init_states, desired_states, params, env, plane_specs, time_step) for env in environment]
+        # with Pool(8) as p:
         #     cost = sum(p.map(cost_sum, wrap_args))
         # return cost / len(environment)
         cost = 0
@@ -101,12 +107,12 @@ def formulate_guess(sim_time):
 
 
 def solve_states(initial_states, desired_states, extern_conditions, plane_specs, acceleration_constraint,
-                    turning_constraint, time_step=1, sim_time=10):
+                 turning_constraint, time_step=1, sim_time=10):
 
     init_x, init_y, init_velocity, init_heading = initial_states
     desired_x, desired_y, desired_velocity = desired_states
 
-    state0 = [init_x, init_y, init_velocity, init_heading]
+    state0 = initial_states
     init_guess = formulate_guess(sim_time)
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
@@ -115,8 +121,11 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
                               time_step=time_step, state_weight=1, constraint_weight=1, control_weight=0.01,
                               dstate_weight=5, fvelocity_weight=10)
 
+    start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
-                          options={'eps': 0.01, 'maxiter': 500})
+                          options={'eps': 0.01, 'maxiter': 100})
+    print('----', time.time() - start_time, 'seconds ----')
+
     states = compute_states(initial_states, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
     return get_controls(states, time_step), result.success, result.message, result.fun
