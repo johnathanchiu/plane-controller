@@ -1,0 +1,9 @@
+# PID controller time-step
+sample_time: 0.1 # s
+
+# recompute using solver after t seconds
+receding_horizon: 1 / 4 # s
+
+# simulation length
+simulation_steps: 50 # s
+
