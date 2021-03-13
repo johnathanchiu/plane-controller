@@ -73,14 +73,22 @@ def cost_sum(wrapped_args):
     return cost
 
 
-def formulate_objective(init_states, desired_states, environment, plane_specs, time_step=1, state_weight=0.1,
-                        control_weight=0.1, constraint_weight=0.1, dstate_weight=0.001, fvelocity_weight=1.0):
+def formulate_objective(init_states, desired_states, environment, plane_specs, time_step=1):
+
     desired_x, desired_y, desired_v = desired_states
+    
     def objective(params):
         # wrap_args = [(init_states, desired_states, params, env, plane_specs, time_step) for env in environment]
         # with Pool(8) as p:
         #     cost = sum(p.map(cost_sum, wrap_args))
         # return cost / len(environment)
+        
+        state_weight = 1
+        constraint_weight = 1
+        control_weight = 0.01
+        dstate_weight = 5
+        fvelocity_weight = 10
+        
         cost = 0
         for env in environment:
             states = compute_states(init_states, params, env, plane_specs, time_step=time_step)
@@ -117,9 +125,7 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
 
-    obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], extern_conditions, plane_specs,
-                              time_step=time_step, state_weight=1, constraint_weight=1, control_weight=0.01,
-                              dstate_weight=5, fvelocity_weight=10)
+    obj = formulate_objective(state0, [desired_x, desired_y, desired_velocity], extern_conditions, plane_specs, time_step=time_step)
 
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
@@ -128,4 +134,4 @@ def solve_states(initial_states, desired_states, extern_conditions, plane_specs,
 
     states = compute_states(initial_states, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
-    return get_controls(states, time_step), result.success, result.message, result.fun
+    return get_controls(states, time_step), result.fun
