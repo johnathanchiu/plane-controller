@@ -126,6 +126,8 @@ if __name__ == '__main__':
     sample_time = config['sample_time']
     receding_horizon = config['receding_horizon']
     
+    TAKEOFF = config['takeoff']
+    
     controls_table = pickle.load(open(args.table, 'rb'))
     desired_veloctiy, velocity_bins, heading_bins, ws_bins, wh_bins, grids, table = controls_table
     

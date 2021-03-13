@@ -7,3 +7,5 @@ receding_horizon: 1 / 4 # s
 # simulation length
 simulation_steps: 50 # s
 
+# take-off
+takeoff: 0
