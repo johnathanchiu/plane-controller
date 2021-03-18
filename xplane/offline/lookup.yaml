@@ -25,24 +25,46 @@ runway_half_width: 20 # m
 runway_front_extend: 5 # m
 runway_end_decrease: 1000 # m
 
+# box_dimension:
+#     - 40
+#     - 8
+# velocity_bins:
+#     - 0
+#     - 60
+#     - 3
+# heading_bins:
+#     - -30
+#     - 30
+#     - 4
+# wind_speed_bins:
+#     - 0
+#     - 10
+#     - 1
+# wind_heading_bins:
+#     - -10
+#     - 10
+#     - 1
+# number_samples:
+#     - 10
+
+number_samples: 1
+
 box_dimension:
     - 40
     - 8
 velocity_bins:
     - 0
-    - 60
-    - 3
+    - 2
+    - 2
 heading_bins:
-    - -30
-    - 30
+    - -10
+    - 10
     - 4
 wind_speed_bins:
     - 0
-    - 10
+    - 1
     - 1
 wind_heading_bins:
-    - -10
-    - 10
+    - -1
     - 1
-number_samples:
-    - 10
+    - 1

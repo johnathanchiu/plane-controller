@@ -19,8 +19,8 @@ import argparse
 def sample_environments(real_ws, real_wh):
     env = [(real_ws, solver_heading(real_wh))]
     for _ in range(num_samples):
-        env.append((np.random.randint(real_ws - ws_bound, real_ws + ws_bound + 1),
-                    solver_heading(np.random.randint(real_wh - wh_bound, real_wh + wh_bound + 1))))
+        env.append((np.random.randint(real_ws - ws_bins[2], real_ws + ws_bins[2] + 1),
+                    solver_heading(np.random.randint(real_wh - wh_bins[2], real_wh + wh_bins[2] + 1))))
     return env
 
 
@@ -87,8 +87,8 @@ def load_yaml(filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', help='configuration file', default='config.yaml')
-    parser.add_argument('-r', '--runway_config', help='runway configuration file', default='runway.yaml')
+    parser.add_argument('-c', '--config', help='configuration file', default='lookup.yaml')
+    parser.add_argument('-r', '--runway_config', help='runway configuration file', default='../runway.yaml')
     parser.add_argument('-t', '--table', help='lookup table name')
     args = parser.parse_args()
 
@@ -102,7 +102,12 @@ if __name__ == '__main__':
 
     runway_half_width = config['runway_half_width']
     
+    ### physical plane constraints ###
     plane_specs = [config['plane_cs'], config['plane_mass'], config['plane_half_length']]
+    acceleration_constraint = config['acceleration_constraint']
+    turning_constraint = config['turning_constraint']
+
+    ### desired position ###
     desired_states = [runway_end_x, runway_end_z, config['desired_velocity']]
     
     runway_front_extend = config['runway_front_extend']
@@ -117,13 +122,17 @@ if __name__ == '__main__':
     
     ### solver environment sampling ###
     num_samples = config['number_samples']
+
+    ### solver steps ###
+    time_step = config['time_step']
+    num_steps = config['num_steps']
     
     ### setup runway coordinates ###
     ex, ez = rotate(runway_end_x, runway_end_z, -(runway_heading + XPlaneDefs.zero_heading - 360))
     sx, sz = rotate(runway_start_x, runway_start_z, -(runway_heading + XPlaneDefs.zero_heading - 360))
     ex, ez, sx, sz = int(np.floor(ex)), int(np.floor(ez)), int(np.floor(sx)), int(np.floor(sz))
 
-    sx -= runway_extend_length
+    sx -= runway_front_extend
     ex -= runway_end_decrease
     sz -= runway_half_width
     ez += runway_half_width
@@ -140,7 +149,7 @@ if __name__ == '__main__':
     
     print("Generating Controls Table...")
     start = time.time()
-    grids, table = generate_control_lookup(box_dim)
+    grids, table = generate_control_lookup(box_dimension)
     print("--- %s seconds ---" % (time.time() - start))
     
     controls_table = [desired_velocity, velocity_bins, heading_bins, ws_bins, wh_bins, grids, table]
