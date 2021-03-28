@@ -1,3 +1,6 @@
+import sys
+sys.path.append('..')
+
 from simple_solver import solve_states
 from controller import apply_controls, takeoff, PID
 from definitions import XPlaneDefs
