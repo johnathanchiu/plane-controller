@@ -32,7 +32,7 @@ desired_z = runway_end_z
 desired_velocity = 50 # m/s
 
 acceleration_constraint = 2 # m/s^2
-turning_constraint = 10 # degrees
+turning_constraint = 40 # degrees
 
 plane_cs = 27.41 # square meters
 plane_mass = 6175 * 0.45359237 # lbs -> kg
@@ -51,7 +51,7 @@ sample_time = 0.1
 simulation_steps = 50
 
 # recompute using solver after t seconds
-receding_horizon = 1
+receding_horizon = 4
 
 # number of environments to sample
 num_environment_samples = 100
@@ -91,14 +91,14 @@ rudder_controller = PID(0.3, 0.4, 1.5, 10.0, sample_time)
 
 read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
 winds = [[0, runway_heading + XPlaneDefs.zero_heading]]
-cl = np.array([desired_x, desired_y])
+cl = np.array([desired_x, desired_z])
 
 for t in range(50):
     gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)
     gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
     
-    desired_states = [runway_heading + XPlaneDefs.zero_heading, desired_velocity]
-    dist = signed_rejection_dist(cl, init_x, init_y)
+    desired_states = [runway_heading, desired_velocity]
+    dist = signed_rejection_dist(cl, x - origin_x, z - origin_z)
     init_states = [dist, gs, psi + XPlaneDefs.zero_heading]
 
     controls, _ = solve_states(init_states, desired_states, cl, winds, plane_specs, acceleration_constraint,

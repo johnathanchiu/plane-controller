@@ -3,7 +3,7 @@ import scipy.optimize as opt
 
 from multiprocessing import Pool
 
-from geometry import signed_rejection_dist
+from geometry import signed_rejection_dist, rotate
 
 from definitions import XPlaneDefs
 
@@ -94,16 +94,14 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
               
-    cl = np.array([desired_x, desired_y])
-    rinit_x, rinit_y = rotate(0, rejection, runway_heading + XPlaneDefs.zero_heading - 360)
+    rinit_x, rinit_y = rotate(0, rejection, desired_heading + XPlaneDefs.zero_heading - 360)
     state0 = [rinit_x, rinit_y, init_velocity, init_heading]
 
-    obj = formulate_objective(state0, cl, [runway_heading + zero_heading, desired_velocity],
-                              wind_dynamics, plane_specs, time_step=time_step)
-
+    obj = formulate_objective(state0, center_line, [desired_heading + XPlaneDefs.zero_heading, desired_velocity],
+                              extern_conditions, plane_specs, time_step=time_step)
+    start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
-                          options={'eps': 0.3, 'maxiter': 500})
-    result
+                          options={'eps': 0.1, 'maxiter': 300})
     print('----', time.time() - start_time, 'seconds ----')
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
