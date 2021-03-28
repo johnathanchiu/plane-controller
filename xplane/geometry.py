@@ -47,6 +47,14 @@ def rejection_dist(desired_x, desired_y, curr_x, curr_y):
     return np.linalg.norm([curr_x - proj_x, curr_y - proj_y], ord=2) ** 2
 
 
+def signed_rejection_dist(centerline, curr_x, curr_y):
+    pt = np.array([curr_x, curr_y])
+    projection = centerline@pt / np.linalg.norm(centerline, ord=2) ** 2 * centerline
+    proj_x, proj_y = projection
+    sign = math.copysign(1, curr_x - proj_x)
+    return sign * np.linalg.norm([curr_x - proj_x, curr_y - proj_y], ord=2)
+
+
 def rotate(x, y, angle):
     return [x * np.cos(np.radians(angle)) - y * np.sin(np.radians(angle)),
             x * np.sin(np.radians(angle)) + y * np.cos(np.radians(angle))]
