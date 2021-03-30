@@ -3,5 +3,9 @@
 *.pyc
 */__pycache__
 
+*.pkl
+xplane/tables
 
 .DS_Store
+
+xplane/old
