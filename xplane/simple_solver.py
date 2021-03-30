@@ -102,7 +102,7 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
-                          options={'eps': 0.1, 'maxiter': 300})
+                          options={'eps': 0.2, 'maxiter': 100})
     print('----', time.time() - start_time, 'seconds ----')
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
