@@ -1,0 +1,71 @@
+### Plane Specifications ###
+
+plane_cs: 27.41 # m^2
+plane_mass: 2800.93288475 # kg
+plane_half_length: 5.41 # m
+
+acceleration_constraint: 2 # m/s^2
+turning_constraint: 10 # degrees/s
+
+
+### Takeoff Specifications ###
+
+desired_velocity: 50 # m/s
+
+
+### Solver Specifications ###
+
+time_step: 1 # seconds
+num_steps: 5 # seconds
+
+
+### Lookup Table Specifications ###
+
+runway_half_width: 20 # m
+runway_front_extend: 5 # m
+runway_end_decrease: 1000 # m
+
+# box_dimension:
+#     - 40
+#     - 8
+# velocity_bins:
+#     - 0
+#     - 60
+#     - 3
+# heading_bins:
+#     - -30
+#     - 30
+#     - 4
+# wind_speed_bins:
+#     - 0
+#     - 10
+#     - 1
+# wind_heading_bins:
+#     - -10
+#     - 10
+#     - 1
+# number_samples:
+#     - 10
+
+number_samples: 1
+
+cross_track_bins:
+    - -10
+    - 10
+    - 1
+velocity_bins:
+    - 0
+    - 2
+    - 2
+heading_bins:
+    - -10
+    - 10
+    - 4
+wind_speed_bins:
+    - 0
+    - 1
+    - 1
+wind_heading_bins:
+    - -1
+    - 1
+    - 1
