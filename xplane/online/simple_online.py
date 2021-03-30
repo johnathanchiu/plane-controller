@@ -90,7 +90,7 @@ throttle_controller = PID(2.0, 0.0, 1.0, 10.0, sample_time)
 rudder_controller = PID(0.3, 0.4, 1.5, 10.0, sample_time)
 
 read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
-winds = [[0, runway_heading + XPlaneDefs.zero_heading]]
+winds = [[0, runway_heading]]
 cl = np.array([desired_x, desired_z])
 
 for t in range(50):
@@ -99,11 +99,11 @@ for t in range(50):
     
     desired_states = [runway_heading, desired_velocity]
     dist = signed_rejection_dist(cl, x - origin_x, z - origin_z)
-    init_states = [dist, gs, psi + XPlaneDefs.zero_heading]
+    init_states = [dist, gs, psi]
 
     controls, _ = solve_states(init_states, desired_states, cl, winds, plane_specs, acceleration_constraint,
                                   turning_constraint, time_step=time_step, sim_time=num_steps)
                                   
                                   
-    controls = [[c[0], c[1] - XPlaneDefs.zero_heading] for c in controls]
+    controls = [[c[0], c[1]] for c in controls]
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
