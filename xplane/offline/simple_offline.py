@@ -5,12 +5,13 @@ from geometry import kn_to_ms, rotate, rejection_dist, signed_rejection_dist
 from controller import apply_lookup_controls, takeoff, PID
 from definitions import XPlaneDefs
 
-
 from xpc import XPlaneConnect
 
 import numpy as np
+import argparse
 import random
 import pickle
+import yaml
 import math
 import time
 
@@ -28,22 +29,18 @@ def set_winds():
 
     print("Using (wind speed, wind heading):", wind_speed, wind_heading)
 
-    xp_wind_direction = -1 * wind_degrees + runway_heading # since positive rotation to right
+    xp_wind_direction = -1 * wind_heading + runway_heading # since positive rotation to right
     xp_wind_direction += 180 # wind is counter clockwise of true north
     friction = 0
     
     xp_client.sendDREFs(XPlaneDefs.condition_drefs, [friction, xp_wind_direction, wind_speed])
-
+    return wind_speed, wind_heading
 
 def setup():
     
     # place plane at origin
     _, start_y, _ = xp_client.getDREFs(XPlaneDefs.position_dref)
     xp_client.sendDREFs(XPlaneDefs.position_dref, [origin_x, start_y[0], origin_z])
-    time.sleep(0.1)
-    
-    # set wind environment
-    set_winds()
     time.sleep(0.1)
     
     # fix all systems
@@ -54,6 +51,9 @@ def setup():
     
     
 def apply_takeoff_controls():
+    
+    # set wind environment
+    wind_speed, wind_heading = set_winds()
     
     throttle_controller = PID(2.0, 0.0, 1.0, 10.0, sample_time)
     rudder_controller = PID(0.3, 0.4, 1.5, 10.0, sample_time)
@@ -75,17 +75,18 @@ def apply_takeoff_controls():
 #        cle = rejection_dist(desired_x, desired_z, x - origin_x, z - origin_z)
 #        maximum_cle = max(cld, maximum_cle)
         
-        dist = signed_rejection_dist(cl, x - origin_x, z - origin_z)
+        dist = signed_rejection_dist(center_line, x - origin_x, z - origin_z)
+        dist = confine_bins(dist, ct_bins)
         psi = confine_bins(psi - runway_heading, heading_bins)
         gs = confine_bins(gs, velocity_bins)
         wind_speed = confine_bins(wind_speed, ws_bins)
-        wind_degrees = confine_bins(wind_degrees, wh_bins)
+        wind_heading = confine_bins(wind_heading, wh_bins)
 
         controls, cost = table[(dist, psi, gs, wind_speed, wind_heading)]
 
         # change wind conditions every second
         if time.time() - start > 1:
-            set_winds()
+            wind_speed, wind_heading = set_winds()
             start = time.time()
         
         # let PID controller take over
@@ -110,8 +111,10 @@ if __name__ == '__main__':
     runway = load_yaml(args.runway_config)
     config = load_yaml(args.controller_config)
 
-    runway_end_x = runway['terminate_X'] - runway['origin_X']
-    runway_end_z = runway['terminate_Z'] - runway['origin_Z']
+    origin_x = runway['origin_X']
+    origin_z = runway['origin_Z']
+    runway_end_x = runway['terminate_X'] - origin_x     
+    runway_end_z = runway['terminate_Z'] - origin_z
     runway_heading = runway['runway_heading']
     center_line = np.array([runway_end_x, runway_end_z])
     
@@ -122,7 +125,7 @@ if __name__ == '__main__':
     TAKEOFF = config['takeoff']
     
     controls_table = pickle.load(open(args.table, 'rb'))
-    desired_veloctiy, velocity_bins, heading_bins, ws_bins, wh_bins, table = controls_table
+    _, ct_bins, velocity_bins, heading_bins, ws_bins, wh_bins, table = controls_table
     
     xp_client = XPlaneConnect()
     

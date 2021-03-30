@@ -1,7 +1,7 @@
 import sys
 sys.path.append('..')
 
-from solver import solve_states
+from simple_solver import solve_states
 from definitions import XPlaneDefs
 from geometry import rotate, solver_heading, true_heading, kn_to_ms
 
@@ -27,19 +27,32 @@ def sample_environments(real_ws, real_wh):
 def generate_control_lookup():
     
     lookup_table = {}
+
+    print("Number of controls to generate: {}".format(no_of_controls))
+    control_count = 1
     
     for c in range(cross_track_bins[0], cross_track_bins[1], cross_track_bins[2]):
         for h in range(heading_bins[0], heading_bins[1], heading_bins[2]):
             for v in range(velocity_bins[0], velocity_bins[1], velocity_bins[2]):
                 for ws in range(ws_bins[0], ws_bins[1], ws_bins[2]):
                     for wh in range(wh_bins[0], wh_bins[1], wh_bins[2]):
+
+                            center_c = c + cross_track_bins[2] / 2
+                            center_v = v + velocity_bins[2] / 2
+                            center_h = h + heading_bins[2] / 2
+                            center_ws = ws + ws_bins[2] / 2
+                            center_wh = wh + wh_bins[2] / 2
                     
                             desired_states = [runway_heading, desired_velocity]
-                            init_states = [c, v, h]
-                            winds = sample_environments(kn_to_ms(ws), wh + runway_heading)
-                            controls, cost = solve_states(init_states, desired_states, center_line, winds, plane_specs, acceleration_constraint, turning_constraint, time_step=time_step, sim_time=num_steps)
+                            init_states = [center_c, center_v, center_h + runway_heading]
+                            winds = sample_environments(kn_to_ms(center_ws), center_wh + runway_heading)
+                            controls, cost = solve_states(init_states, desired_states, center_line, winds, plane_specs, 
+                                                          acceleration_constraint, turning_constraint, time_step=time_step, 
+                                                          sim_time=num_steps)
                             controls = [[c[0], c[1]] for c in controls]
                             lookup_table[(c, h, v, ws, wh)] = (controls, cost)
+                            print("Finished {} of {} controls".format(control_count, no_of_controls))
+                            control_count += 1
 
     return lookup_table
     
@@ -54,7 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='configuration file', default='simple-lookup.yaml')
     parser.add_argument('-r', '--runway_config', help='runway configuration file', default='../runway.yaml')
-    parser.add_argument('-t', '--table', help='lookup table name')
+    parser.add_argument('-t', '--table', help='lookup table name', required=True)
     args = parser.parse_args()
 
     config = load_yaml(args.config)
@@ -72,7 +85,8 @@ if __name__ == '__main__':
     turning_constraint = config['turning_constraint']
 
     ### desired position ###
-    desired_states = [runway_heading, config['desired_velocity']]
+    desired_velocity = config['desired_velocity']
+    desired_states = [runway_heading, desired_velocity]
     
     ### lookup specification ###
     velocity_bins = config['velocity_bins']
@@ -101,7 +115,7 @@ if __name__ == '__main__':
     table = generate_control_lookup()
     print("--- %s seconds ---" % (time.time() - start))
     
-    controls_table = [desired_velocity, velocity_bins, heading_bins, ws_bins, wh_bins, table]
+    controls_table = [desired_velocity, cross_track_bins, velocity_bins, heading_bins, ws_bins, wh_bins, table]
     
     # save lookup table
     pickle.dump(controls_table, open(args.table, 'wb'))
