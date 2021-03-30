@@ -16,10 +16,10 @@ def get_controls(states, time_step):
     prev_heading = states[0][1]
     prev_velocity = states[0][0]
     for state in states:
-        c_tup = (prev_velocity + state[-2] * time_step, prev_heading + state[-1] * time_step)
+	prev_heading += state[-1] * time_step
+	prev_velocity += state[-2] * time_step
+        c_tup = (prev_velocity, prev_heading)
         controls.append(c_tup)
-        prev_heading += state[-1]
-        prev_velocity += state[-2]
     return controls
 
 

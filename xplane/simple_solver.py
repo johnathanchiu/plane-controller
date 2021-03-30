@@ -3,9 +3,8 @@ import scipy.optimize as opt
 
 from multiprocessing import Pool
 
-from geometry import signed_rejection_dist, rotate
-
 from definitions import XPlaneDefs
+from geometry import signed_rejection_dist, rotate, solver_heading, true_heading
 
 import random
 import time
@@ -13,22 +12,22 @@ import time
 
 get_states_controls = lambda x: [x[i+2:i+6] for i in range(0, len(x), 6)]
 
-
 def get_controls(states, time_step):
     controls = []
     prev_heading = states[0][1]
     prev_velocity = states[0][0]
     for state in states:
-        c_tup = (prev_velocity + state[-2] * time_step, prev_heading + state[-1] * time_step)
+        prev_heading += state[-1] * time_step
+        prev_velocity += state[-2] * time_step
+        c_tup = (prev_velocity, true_heading(prev_heading))
         controls.append(c_tup)
-        prev_heading += state[-1]
-        prev_velocity += state[-2]
     return controls
 
 
 def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1):
     
     wind_speed, wind_heading = wind_dynamics
+    wind_heading = solver_heading(wind_heading)
     plane_cs, plane_mass, plane_half_length = plane_specs
     wind_force = wind_speed * plane_cs
     wind_acc = wind_force / plane_mass
@@ -48,7 +47,7 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
         y += time_step * vy
         
         # rF * sin(theta)
-        wind_torque = plane_half_length * wind_force * np.sin(np.radians(wind_heading - h))
+        wind_torque = np.abs(plane_half_length * wind_force * np.sin(np.radians(wind_heading - h)))
         wind_w = 0.1 * time_step * (wind_torque / plane_mass) * plane_half_length
         v += time_step * a
         h += time_step * (w + wind_w)
@@ -90,15 +89,17 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     rejection, init_velocity, init_heading = initial_states
     desired_heading, desired_velocity = desired_states
     
+    init_heading = solver_heading(init_heading)
+    
     init_guess = formulate_guess(sim_time)
     bounds = [(-acceleration_constraint, acceleration_constraint),
               (-turning_constraint, turning_constraint)] * sim_time
               
-    rinit_x, rinit_y = rotate(0, rejection, desired_heading + XPlaneDefs.zero_heading - 360)
+    rinit_x, rinit_y = rotate(0, rejection, solver_heading(desired_heading) - 360)
     state0 = [rinit_x, rinit_y, init_velocity, init_heading]
 
-    obj = formulate_objective(state0, center_line, [desired_heading + XPlaneDefs.zero_heading, desired_velocity],
-                              extern_conditions, plane_specs, time_step=time_step)
+    obj = formulate_objective(state0, center_line, [solver_heading(desired_heading), desired_velocity], extern_conditions, plane_specs, time_step=time_step)
+    
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.1, 'maxiter': 300})
