@@ -81,8 +81,7 @@ def apply_takeoff_controls():
         wind_speed = confine_bins(wind_speed, ws_bins)
         wind_degrees = confine_bins(wind_degrees, wh_bins)
 
-        
-        controls, cost = table[(, h, v, ws, wh)]
+        controls, cost = table[(dist, psi, gs, wind_speed, wind_heading)]
 
         # change wind conditions every second
         if time.time() - start > 1:
