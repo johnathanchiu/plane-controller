@@ -1,9 +1,10 @@
 import sys
 sys.path.append('..')
 
+from geometry import kn_to_ms, rotate, rejection_dist, signed_rejection_dist
 from controller import apply_lookup_controls, takeoff, PID
 from definitions import XPlaneDefs
-from geometry import kn_to_ms, rotate, true_heading, fix_heading, rejection_dist
+
 
 from xpc import XPlaneConnect
 
@@ -67,29 +68,21 @@ def apply_takeoff_controls():
         
         gs, psi, throttle, x, _, z = xp_client.getDREFs(read_drefs)
         gs, psi, throttle, x, z = gs[0], psi[0], throttle[0], x[0], z[0]
-        d_x, d_z = rotate(x - origin_x, z - origin_z, -(runway_heading + XPlaneDefs.zero_heading - 360))
-        
-        print("POSITION ON RUNWAY:", d_x, d_z)
-        
-        if TAKEOFF and cost < takeoff_cost_threshold:
-            takeoff(xp_client)
-            return maximum_cle
 
-        cle = rejection_dist(desired_x, desired_z, x - origin_x, z - origin_z)
-        maximum_cle = max(cld, maximum_cle)
-        
-        x, z = np.round(rotate(x - origin_x, z - origin_x, 360 - (runway_heading + XPlaneDefs.zero_heading)))
-        x, z = int(x), int(z)
+        if TAKEOFF:
+            break
 
+#        cle = rejection_dist(desired_x, desired_z, x - origin_x, z - origin_z)
+#        maximum_cle = max(cld, maximum_cle)
+        
+        dist = signed_rejection_dist(cl, x - origin_x, z - origin_z)
         psi = confine_bins(psi - runway_heading, heading_bins)
         gs = confine_bins(gs, velocity_bins)
         wind_speed = confine_bins(wind_speed, ws_bins)
         wind_degrees = confine_bins(wind_degrees, wh_bins)
 
-        # print("(gs, heading, ws, wh)", (gs, psi, wind_speed, wind_degrees))
-        # print("point: ", (x,z))
-        grid_no = grid[(x, z)]
-        controls, cost = table[grid_no][(gs, psi, wind_speed, wind_degrees)]
+        
+        controls, cost = table[(, h, v, ws, wh)]
 
         # change wind conditions every second
         if time.time() - start > 1:
@@ -118,9 +111,10 @@ if __name__ == '__main__':
     runway = load_yaml(args.runway_config)
     config = load_yaml(args.controller_config)
 
-    origin_x = runway['origin_X']
-    origin_z = runway['origin_Z']
+    runway_end_x = runway['terminate_X'] - runway['origin_X']
+    runway_end_z = runway['terminate_Z'] - runway['origin_Z']
     runway_heading = runway['runway_heading']
+    center_line = np.array([runway_end_x, runway_end_z])
     
     simulation_steps = config['simulation_steps']
     sample_time = config['sample_time']
@@ -129,7 +123,7 @@ if __name__ == '__main__':
     TAKEOFF = config['takeoff']
     
     controls_table = pickle.load(open(args.table, 'rb'))
-    desired_veloctiy, velocity_bins, heading_bins, ws_bins, wh_bins, grids, table = controls_table
+    desired_veloctiy, velocity_bins, heading_bins, ws_bins, wh_bins, table = controls_table
     
     xp_client = XPlaneConnect()
     

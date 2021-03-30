@@ -25,9 +25,6 @@ runway_half_width: 20 # m
 runway_front_extend: 5 # m
 runway_end_decrease: 1000 # m
 
-# box_dimension:
-#     - 40
-#     - 8
 # velocity_bins:
 #     - 0
 #     - 60
