@@ -21,8 +21,10 @@ num_steps: 5 # seconds
 
 ### Lookup Table Specifications ###
 
-number_samples: 10
+number_samples: 5
 
+
+# set bins by lower bound, upper bound (inclusive), step size
 cross_track_bins:
     - -10
     - 10
@@ -30,11 +32,11 @@ cross_track_bins:
 velocity_bins:
     - 0
     - 60
-    - 4
+    - 5
 heading_bins:
     - -20
     - 20
-    - 4
+    - 5
 wind_speed_bins:
     - 0
     - 10

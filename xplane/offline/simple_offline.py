@@ -17,10 +17,7 @@ import time
 
 
 def confine_bins(value, bins):
-    for lower_bin in range(bins[0], bins[1], bins[2]):
-        if lower_bin <= value < lower_bin + bins[2]:
-            return lower_bin
-    return np.clip(value, bins[0], bins[1] - bins[2])
+    return bins[np.argmin(np.abs(bins - value))]
     
     
 def set_winds():
@@ -76,11 +73,11 @@ def apply_takeoff_controls():
 #        maximum_cle = max(cld, maximum_cle)
         
         dist = signed_rejection_dist(center_line, x - origin_x, z - origin_z)
-        dist = confine_bins(dist, ct_bins)
-        psi = confine_bins(psi - runway_heading, heading_bins)
-        gs = confine_bins(gs, velocity_bins)
-        wind_speed = confine_bins(wind_speed, ws_bins)
-        wind_heading = confine_bins(wind_heading, wh_bins)
+        dist = confine_bins(dist, c_bins)
+        psi = confine_bins(psi - runway_heading, h_bins)
+        gs = confine_bins(gs, v_bins)
+        wind_speed = confine_bins(wind_speed, wsp_bins)
+        wind_heading = confine_bins(wind_heading, whe_bins)
 
         controls, cost = table[(dist, psi, gs, wind_speed, wind_heading)]
 
@@ -126,6 +123,12 @@ if __name__ == '__main__':
     
     controls_table = pickle.load(open(args.table, 'rb'))
     _, ct_bins, velocity_bins, heading_bins, ws_bins, wh_bins, table = controls_table
+
+    c_bins = np.array([i for i in range(ct_bins[0], ct_bins[1] + 1, ct_bins[2])])
+    v_bins = np.array([i for i in range(velocity_bins[0], velocity_bins[1] + 1, velocity_bins[2])])
+    h_bins = np.array([i for i in range(heading_bins[0], heading_bins[1] + 1, heading_bins[2])])
+    wsp_bins = np.array([i for i in range(ws_bins[0], ws_bins[1] + 1, ws_bins[2])])
+    whe_bins = np.array([i for i in range(wh_bins[0], wh_bins[1] + 1, wh_bins[2])])
     
     xp_client = XPlaneConnect()
     
