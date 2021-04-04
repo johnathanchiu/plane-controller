@@ -47,7 +47,7 @@ def generate_control_lookup():
                             init_states = [center_c, center_v, center_h + runway_heading]
                             winds = sample_environments(kn_to_ms(center_ws), center_wh + runway_heading)
                             controls, cost = solve_states(init_states, desired_states, center_line, winds, plane_specs, 
-                                                          acceleration_constraint, turning_constraint, time_step=time_step, 
+                                                          (acceleration_constraint, turning_constraint), time_step=time_step, 
                                                           sim_time=num_steps)
                             controls = [[c[0], c[1]] for c in controls]
                             lookup_table[(c, h, v, ws, wh)] = (controls, cost)

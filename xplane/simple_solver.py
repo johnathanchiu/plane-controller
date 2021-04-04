@@ -84,8 +84,10 @@ def formulate_guess(sim_time):
     return np.zeros((sim_time*2,))
 
 
-def solve_states(initial_states, desired_states, center_line, extern_conditions, plane_specs, acceleration_constraint, turning_constraint, time_step=1, sim_time=10):
+def solve_states(initial_states, desired_states, center_line, extern_conditions, plane_specs, constraints, time_step=1, sim_time=10):
 
+    acceleration_constraint, turning_constraint = constraints
+    
     rejection, init_velocity, init_heading = initial_states
     desired_heading, desired_velocity = desired_states
     
