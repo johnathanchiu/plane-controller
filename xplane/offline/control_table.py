@@ -31,21 +31,15 @@ def generate_control_lookup():
     print("Number of controls to generate: {}".format(no_of_controls))
     control_count = 1
     
-    for c in range(cross_track_bins[0], cross_track_bins[1], cross_track_bins[2]):
-        for h in range(heading_bins[0], heading_bins[1], heading_bins[2]):
-            for v in range(velocity_bins[0], velocity_bins[1], velocity_bins[2]):
-                for ws in range(ws_bins[0], ws_bins[1], ws_bins[2]):
-                    for wh in range(wh_bins[0], wh_bins[1], wh_bins[2]):
-
-                            center_c = c + cross_track_bins[2] / 2
-                            center_v = v + velocity_bins[2] / 2
-                            center_h = h + heading_bins[2] / 2
-                            center_ws = ws + ws_bins[2] / 2
-                            center_wh = wh + wh_bins[2] / 2
+    for c in range(cross_track_bins[0], cross_track_bins[1] + 1, cross_track_bins[2]):
+        for h in range(heading_bins[0], heading_bins[1] + 1, heading_bins[2]):
+            for v in range(velocity_bins[0], velocity_bins[1] + 1, velocity_bins[2]):
+                for ws in range(ws_bins[0], ws_bins[1] + 1, ws_bins[2]):
+                    for wh in range(wh_bins[0], wh_bins[1] + 1, wh_bins[2]):
                     
                             desired_states = [runway_heading, desired_velocity]
-                            init_states = [center_c, center_v, center_h + runway_heading]
-                            winds = sample_environments(kn_to_ms(center_ws), center_wh + runway_heading)
+                            init_states = [c, v, h + runway_heading]
+                            winds = sample_environments(kn_to_ms(ws), wh + runway_heading)
                             controls, cost = solve_states(init_states, desired_states, center_line, winds, plane_specs, 
                                                           (acceleration_constraint, turning_constraint), time_step=time_step, 
                                                           sim_time=num_steps)
@@ -104,11 +98,11 @@ if __name__ == '__main__':
     
     ### generate lookup table ###
     
-    no_of_controls = ((cross_track_bins[1] - cross_track_bins[0]) / cross_track_bins[2]) * \
-                     ((heading_bins[1] - heading_bins[0]) / heading_bins[2]) * \
-                     ((velocity_bins[1] - velocity_bins[0]) / velocity_bins[2]) * \
-                     ((ws_bins[1] - ws_bins[0]) / ws_bins[2]) * \
-                     ((wh_bins[1] - wh_bins[0]) / wh_bins[2])
+    no_of_controls = ((cross_track_bins[1] - cross_track_bins[0]) / cross_track_bins[2] + 1) * \
+                     ((heading_bins[1] - heading_bins[0]) / heading_bins[2] + 1) * \
+                     ((velocity_bins[1] - velocity_bins[0]) / velocity_bins[2] + 1) * \
+                     ((ws_bins[1] - ws_bins[0]) / ws_bins[2] + 1) * \
+                     ((wh_bins[1] - wh_bins[0]) / wh_bins[2] + 1)
     
     print("Generating Controls Table...")
     start = time.time()

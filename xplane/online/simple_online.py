@@ -51,7 +51,7 @@ sample_time = 0.1
 simulation_steps = 50
 
 # recompute using solver after t seconds
-receding_horizon = 4
+receding_horizon = 1
 
 # number of environments to sample
 num_environment_samples = 100
@@ -107,3 +107,4 @@ for t in range(50):
                                   
     controls = [[c[0], c[1]] for c in controls]
     apply_controls(xp_client, throttle_controller, rudder_controller, controls, sample_time, time_step, receding_horizon)
+    print("------------------------------------------------------------")
