@@ -1,0 +1,15 @@
+# PID controller time-step
+sample_time: 0.1 # s
+
+# recompute using solver after t seconds
+receding_horizon: 1 # s
+
+# number of states to solve in each MPC iterations
+simulation_size: 5
+time_step: 1 # s
+
+# simulation length
+simulation_steps: 50 # s
+
+# take-off
+takeoff: 0
