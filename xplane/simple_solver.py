@@ -12,6 +12,7 @@ import time
 
 get_states_controls = lambda x: [x[i+2:i+6] for i in range(0, len(x), 6)]
 
+
 def get_controls(states, time_step):
     controls = []
     prev_heading = states[0][1]
@@ -20,6 +21,18 @@ def get_controls(states, time_step):
         prev_heading += state[-1] * time_step
         prev_velocity += state[-2] * time_step
         c_tup = (prev_velocity, true_heading(prev_heading))
+        controls.append(c_tup)
+    return controls
+
+
+def get_kalman_controls(states, time_step):
+    controls = []
+    prev_heading = states[0][1]
+    prev_velocity = states[0][0]
+    for state in states:
+        prev_heading += state[-1] * time_step
+        prev_velocity += state[-2] * time_step
+        c_tup = (prev_velocity, true_heading(prev_heading), state[-2], state[-1])
         controls.append(c_tup)
     return controls
 
@@ -62,7 +75,7 @@ def formulate_objective(init_state, center_line, desired_states, environment, pl
     control_weight = 0.1
     centerline_weight = 100
     velocity_weight = 3
-    heading_weight = 5
+    heading_weight = 30
     
     desired_h, desired_v = desired_states
     
@@ -110,3 +123,31 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
     return get_controls(states, time_step), result.fun
+
+
+def solve_states2(initial_states, desired_states, center_line, extern_conditions, plane_specs, constraints, time_step=1, sim_time=10):
+
+    acceleration_constraint, turning_constraint = constraints
+    
+    rejection, init_velocity, init_heading = initial_states
+    desired_heading, desired_velocity = desired_states
+    
+    init_heading = solver_heading(init_heading)
+    
+    init_guess = formulate_guess(sim_time)
+    bounds = [(-acceleration_constraint, acceleration_constraint),
+              (-turning_constraint, turning_constraint)] * sim_time
+              
+    rinit_x, rinit_y = rotate(0, rejection, solver_heading(desired_heading) - 360)
+    state0 = [rinit_x, rinit_y, init_velocity, init_heading]
+
+    obj = formulate_objective(state0, center_line, [solver_heading(desired_heading), desired_velocity], extern_conditions, plane_specs, time_step=time_step)
+    
+    start_time = time.time()
+    result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
+                          options={'eps': 0.2, 'maxiter': 300})
+    print('----', time.time() - start_time, 'seconds ----')
+
+    states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
+    states = get_states_controls(states)
+    return get_kalman_controls(states, time_step), result.fun

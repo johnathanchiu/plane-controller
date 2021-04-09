@@ -9,7 +9,23 @@ simulation_size: 5
 time_step: 1 # s
 
 # simulation length
-simulation_steps: 50 # s
+simulation_steps: 100 # s
 
 # take-off
 takeoff: 0
+
+# terminal velocity
+terminal_velocity: 50 # m/s
+
+# plane specs/constraints
+plane_cs: 27.41 # m^2
+plane_mass: 2800.93288475 # kg
+plane_half_length: 5.41 # m
+
+acceleration_constraint: 5 # m/s^2
+turning_constraint: 5 # degrees/s
+
+
+fuel: 232.742
+init_theta: -0.4112
+init_phi: 0.3088
