@@ -1,9 +1,9 @@
 from geometry import compute_heading_error
 from definitions import XPlaneDefs
+from kalman import find_kalman_controls
 
 import numpy as np
 import math
-
 import time
 
 class PID:
@@ -119,20 +119,30 @@ def apply_lookup_controls(client, throttle_controller, rudder_controller, contro
             time.sleep(sample_time)
             
 
-def apply_kalman_controls(client, throttle_controller, rudder_controller, control, sample_time=0.1, time_step=1):
+def apply_kalman_controls(client, queue, prev_sample, runway_origin, throttle_controller, rudder_controller, 
+                          control, sample_time=0.1, time_step=1):
+    origin_x, origin_z = runway_origin
+    read_drefs = XPlaneDefs.control_dref + XPlaneDefs.position_dref
     velocity_control, heading_control = control
     throttle_controller.clear()
     rudder_controller.clear()
     t0 = time.time()
     while time.time() - t0 < time_step:
+        if time.time() - prev_sample >= time_step:
+            gs, psi, _, x, _, z = client.getDREFs(read_drefs)
+            gs, psi, x, z = gs[0], psi[0], x[0], z[0]
+            vx, vz = find_kalman_controls(gs, psi)
+            queue.put(np.array([x - origin_x, z - origin_z, vx, vz]))
+            prev_sample = time.time()
         gs, psi, throttle = client.getDREFs(XPlaneDefs.control_dref)
         gs, psi, throttle = gs[0], psi[0], throttle[0]
-        print("current state:", psi, gs)
-        print("desired_state:", heading_control, velocity_control)
+        # print("current state:", psi, gs)
+        # print("desired_state:", heading_control, velocity_control)
         rudder, aileron = compute_rudder(rudder_controller, gs, heading_control, psi)
         throttle = compute_throttle(throttle_controller, throttle, gs, velocity_control)
         set_control(client, aileron, rudder, throttle)
         time.sleep(sample_time)
+    return prev_sample
 
 
 def takeoff(client):

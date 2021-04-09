@@ -1,3 +1,10 @@
+from geometry import solver_heading, true_heading
+
+import numpy as np
+import copy
+import math
+
+
 class AbstractKFilter:
 
     def reset(self):
@@ -36,4 +43,15 @@ class KFilter(AbstractKFilter):
                 self.steady_state = True
         innovation = measurement - self.C@self.state
         self.state = self.state + self.K@innovation
-        
+
+    def get_state(self):
+        vx, vz = self.state[-2], self.state[-1] 
+        pred_gs = math.sqrt(vx**2 + vz**2)
+        pred_heading = math.degrees(math.atan(vz / vx)) % 360
+        return self.state[0], self.state[1], pred_gs, true_heading(pred_heading)
+
+
+def find_kalman_controls(control, heading):
+    control_x = control * np.cos(np.radians(solver_heading(heading)))
+    control_z = control * np.sin(np.radians(solver_heading(heading)))
+    return control_x, control_z
