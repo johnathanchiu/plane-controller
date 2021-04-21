@@ -19,10 +19,7 @@ import yaml
 
 def kalman_solver(queues, kalman, init_states, config, runway, center_line):
     
-    controls_queue, conditions_queue, states_queue, stop_queue = queues
-
-    # TODO: fix this (only for testing purposes)
-    winds = [[0, 0]]
+    controls_queue, conditions_queue, states_queue, stop_queue = queue
     
     runtime = config['simulation_steps']
     time_step, sim_size = config['time_step'], config['simulation_size']
@@ -39,17 +36,21 @@ def kalman_solver(queues, kalman, init_states, config, runway, center_line):
     origin_x, origin_z = runway['origin_X'], runway['origin_Z']
     desired_states = [runway_heading, terminal_velocity]
 
-    # winds = conditions_queue.get()
+    winds = conditions_queue.get()
 
     controls, cost = solve_states2(init_states, desired_states, center_line, winds, plane_specs, solver_constraints, time_step=time_step, sim_time=sim_size)
     c_controls = [[c[0], c[1]] for c in controls] 
-    ax, az = find_kalman_controls(controls[0][2], init_states[-1])
-    k_controls = np.array([ax, az])
+    accs = [c[2] for c in controls]
+    omegas = [c[3] for c in controls]
     controls_queue.put(c_controls)
     
     start, next_input = time.time(), time.time()
     while time.time() - start < runtime:
-        kalman.predict(k_controls)
+        pred_heading = init_states[-1]
+        for i in range(int(receding_horizon / time_step)): 
+            ax, az = find_kalman_controls(accs[i], pred_heading + omegas[i] * time_step, winds[0], plane_specs[:-1])
+            kalman.predict(np.array([ax, az]))
+            _, _, pred_ground_speed, pred_heading = kalman.get_state()
         x, z, pred_ground_speed, pred_heading = kalman.get_state()
         print("KALMAN PREDICTION:")
         print("X, Z: {}, {}".format(x, z))
@@ -58,8 +59,8 @@ def kalman_solver(queues, kalman, init_states, config, runway, center_line):
         init_states = [dist, pred_ground_speed, pred_heading]
         controls, cost = solve_states2(init_states, desired_states, center_line, winds, plane_specs, solver_constraints, time_step=time_step, sim_time=sim_size)
         c_controls = [[c[0], c[1]] for c in controls]
-        ax, az = find_kalman_controls(controls[0][2], init_states[-1])
-        k_controls = np.array([ax, az])
+        accs = [c[2] for c in controls]
+        omegas = [c[3] for c in controls]
         time.sleep(max(0, receding_horizon - (time.time() - next_input)))
         controls_queue.put(c_controls)
         
@@ -98,7 +99,7 @@ def controller(client, queues, rudder, throttle, runway, config):
         if time.time() - prev_sample >= time_step:
             gs, psi, _, x, _, z = client.getDREFs(read_drefs)
             gs, psi, x, z = gs[0], psi[0], x[0], z[0]
-            vx, vz = find_kalman_controls(gs, psi)
+            vx, vz = find_kalman_controls(gs, psi, wind_speed, wind_heading)
             states_queue.put(np.array([x - origin_x, z - origin_z, vx, vz]))
             prev_sample = time.time()
         if not controls_queue.empty():
@@ -117,7 +118,7 @@ def controller(client, queues, rudder, throttle, runway, config):
 
         
 def update_environment(wind_speed, wind_heading):
-    pass
+    # TODO: finish updating function
     
     
 def run_controller():
@@ -128,14 +129,14 @@ def run_controller():
     
     kalman_queues = (controls_queue, environment_queue, states_queue, kill_queue)
     
-#    p1 = multiprocessing.Process(target=update_environment, args=())
+    p1 = multiprocessing.Process(target=update_environment, args=(xp_client, winds, num_samples, kill_queue))
     p2 = multiprocessing.Process(target=kalman_solver, args=(kalman_queues, kf, init_states, config, runway, center_line))
     p3 = multiprocessing.Process(target=controller, args=(xp_client, (controls_queue, states_queue, kill_queue), rudder_controller, 
                                  throttle_controller, runway, config))
-#    p1.start()
+    p1.start()
     p2.start()
     p3.start()
-#    p1.join()
+    p1.join()
     p2.join()
     p3.join()
     
@@ -195,22 +196,31 @@ if __name__ == '__main__':
     init_phi, init_theta = config['init_phi'], config['init_theta']
 
     dt = config['time_step']
+    receding_horizon = config['receding_horizon']
+    sim_size = config['simulation_size']
+    assert receding_horizon % dt == 0.0, 'receding_horizon must be a multiple of time_step'
+    assert dt * sim_size >= receding_horizon, 'not enough states computed to reach horizon'
+
     # state transition matrix
     F = np.array([[1.0, 0.0, dt, 0.0],
                   [0.0, 1.0, 0.0, dt],
                   [0.0, 0.0, 1.0, 0.0],
                   [0.0, 0.0, 0.0, 1.0]])
     # controls matrix
-    B = np.array([[0.5*dt*dt, 0],
-                  [0, 0.5*dt*dt],
+    B = np.array([[0.5 * dt * dt, 0],
+                  [0, 0.5 * dt * dt],
                   [0.1 * dt, 0],
                   [0, 0.1 * dt]])
     # measurements matrix
     H = np.eye(4)
     # uncertainty for prediction
     Q = np.eye(4) * 10000
+    # covariant noise
+    N = np.random.randint(1, 100, size=(4, 4))
+    np.fill_diagonal(N, 0)
+    Q = Q + N
     # uncertainty for measurements
-    R = np.eye(4) * 100
+    R = np.eye(4) * 5
 
     xp_client = XPlaneConnect()
 
