@@ -51,7 +51,14 @@ class KFilter(AbstractKFilter):
         return self.state[0], self.state[1], pred_gs, true_heading(pred_heading)
 
 
-def find_kalman_controls(control, heading):
+def find_kalman_controls(control, heading, winds=None, plane_specs=None):
     control_x = control * np.cos(np.radians(solver_heading(heading)))
     control_z = control * np.sin(np.radians(solver_heading(heading)))
+    if winds:
+        wind_speed, wind_heading = winds
+        plane_cs, plane_mass = plane_specs
+        wind_acc = wind_speed * plane_cs / plane_mass
+        
+        control_x += wind_acc * np.cos(np.radians(solver_heading(wind_heading)))
+        control_z += wind_acc * np.sin(np.radians(solver_heading(wind_heading)))
     return control_x, control_z
