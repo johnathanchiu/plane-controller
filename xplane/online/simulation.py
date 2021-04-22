@@ -19,7 +19,7 @@ import yaml
 
 def kalman_solver(queues, kalman, init_states, config, runway, center_line):
     
-    controls_queue, conditions_queue, states_queue, stop_queue = queue
+    controls_queue, conditions_queue, states_queue, stop_queue = queues
     
     runtime = config['simulation_steps']
     time_step, sim_size = config['time_step'], config['simulation_size']
@@ -36,7 +36,9 @@ def kalman_solver(queues, kalman, init_states, config, runway, center_line):
     origin_x, origin_z = runway['origin_X'], runway['origin_Z']
     desired_states = [runway_heading, terminal_velocity]
 
-    winds = conditions_queue.get()
+    winds = [[0, 0]]
+    if not conditions_queue.empty():
+        winds = conditions_queue.get()
 
     controls, cost = solve_states2(init_states, desired_states, center_line, winds, plane_specs, solver_constraints, time_step=time_step, sim_time=sim_size)
     c_controls = [[c[0], c[1]] for c in controls] 
@@ -52,11 +54,15 @@ def kalman_solver(queues, kalman, init_states, config, runway, center_line):
             kalman.predict(np.array([ax, az]))
             _, _, pred_ground_speed, pred_heading = kalman.get_state()
         x, z, pred_ground_speed, pred_heading = kalman.get_state()
+        print("----------------------------------------------")
         print("KALMAN PREDICTION:")
         print("X, Z: {}, {}".format(x, z))
         print("ground speed, heading: {}, {}".format(pred_ground_speed, pred_heading))
+        print("----------------------------------------------\n")
         dist = signed_rejection_dist(center_line, x, z)
         init_states = [dist, pred_ground_speed, pred_heading]
+        if not conditions_queue.empty():
+            winds = conditions_queue.get()
         controls, cost = solve_states2(init_states, desired_states, center_line, winds, plane_specs, solver_constraints, time_step=time_step, sim_time=sim_size)
         c_controls = [[c[0], c[1]] for c in controls]
         accs = [c[2] for c in controls]
@@ -69,15 +75,15 @@ def kalman_solver(queues, kalman, init_states, config, runway, center_line):
             x, z, vx, vz = measurement
             me_gs = math.sqrt(vx**2 + vz**2)
             me_head = math.degrees(math.atan(vz / vx)) % 360 - 270
+            print("----------------------------------------------")
             print("MEASUREMENTS:")
             print("X, Z: {}, {}".format(x, z))
             print("ground speed, heading: {}, {}".format(me_gs, me_head))
+            print("----------------------------------------------\n")
             kalman.update(measurement)
 
         next_input = time.time()
         
-        print("----------------------------------------------")
-
     stop_queue.put(1)
                 
     
@@ -99,7 +105,7 @@ def controller(client, queues, rudder, throttle, runway, config):
         if time.time() - prev_sample >= time_step:
             gs, psi, _, x, _, z = client.getDREFs(read_drefs)
             gs, psi, x, z = gs[0], psi[0], x[0], z[0]
-            vx, vz = find_kalman_controls(gs, psi, wind_speed, wind_heading)
+            vx, vz = find_kalman_controls(gs, psi)
             states_queue.put(np.array([x - origin_x, z - origin_z, vx, vz]))
             prev_sample = time.time()
         if not controls_queue.empty():
@@ -113,12 +119,39 @@ def controller(client, queues, rudder, throttle, runway, config):
                 immediate_control = control[control_count]
                 prev_sample = apply_kalman_controls(client, states_queue, prev_sample, (origin_x, origin_z), throttle, 
                                                     rudder, immediate_control, control_sr, time_step)
-                control_count = max(control_count + 1, len(control) - 1)
+                control_count = min(control_count + 1, len(control) - 1)
         apply = stop_queue.empty()
 
         
-def update_environment(wind_speed, wind_heading):
-    # TODO: finish updating function
+def update_environment(client, queues, wind_speed_bounds, wind_heading_bounds, num_samples, runway):
+
+    environment_queue, stop_queue = queues
+    runway_heading = runway['runway_heading']
+
+    lb_ws, ub_ws = wind_speed_bounds
+    lb_wh, ub_wh = wind_heading_bounds
+
+    apply = True
+    while apply:
+
+        wind_speeds = np.random.randint(lb_ws, ub_ws, size=num_samples+1).tolist()
+        wind_headings = np.random.randint(lb_wh, ub_wh, size=num_samples+1).tolist()
+
+        wind_speed = wind_speeds[0]
+        wind_heading = wind_headings[0]
+        print("----------------------------------------------------")
+        print("Using (wind speed, wind heading):", wind_speed, wind_heading + runway_heading)
+        print("----------------------------------------------------\n")
+
+        xp_wind_direction = -1 * wind_heading + runway_heading # since positive rotation to right
+        xp_wind_direction += 180 # wind is counter clockwise of true north
+        
+        client.sendDREFs(XPlaneDefs.condition_drefs, [0, xp_wind_direction, wind_speed])
+        wind_headings = [h + runway_heading for h in wind_headings]
+        environment_queue.put(list(zip(wind_speeds, wind_headings)))
+        apply = stop_queue.empty()
+
+        time.sleep(5)
     
     
 def run_controller():
@@ -129,7 +162,7 @@ def run_controller():
     
     kalman_queues = (controls_queue, environment_queue, states_queue, kill_queue)
     
-    p1 = multiprocessing.Process(target=update_environment, args=(xp_client, winds, num_samples, kill_queue))
+    p1 = multiprocessing.Process(target=update_environment, args=(xp_client, (environment_queue, kill_queue), ws_bound, wh_bound, num_samples, runway))
     p2 = multiprocessing.Process(target=kalman_solver, args=(kalman_queues, kf, init_states, config, runway, center_line))
     p3 = multiprocessing.Process(target=controller, args=(xp_client, (controls_queue, states_queue, kill_queue), rudder_controller, 
                                  throttle_controller, runway, config))
@@ -238,6 +271,10 @@ if __name__ == '__main__':
     kf = KFilter(F, B, Q, H, R, state=np.array([x - origin_x, z - origin_z, vx, vz]))
     throttle_controller = PID(2.0, 0.0, 1.0, 10.0, config['sample_time'])
     rudder_controller = PID(0.3, 0.4, 1.5, 10.0, config['sample_time'])
+
+    num_samples = config['environment_samples'] 
+    ws_bound = config['windspeed_bounds']
+    wh_bound = config['wind_heading_bounds']
     
     run_controller()
     
