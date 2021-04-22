@@ -72,10 +72,10 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
 
 def formulate_objective(init_state, center_line, desired_states, environment, plane_specs, time_step=1):
     
-    control_weight = 0.1
-    centerline_weight = 100
+    control_weight = 1
+    centerline_weight = 10
     velocity_weight = 3
-    heading_weight = 30
+    heading_weight = 8
     
     desired_h, desired_v = desired_states
     
@@ -118,7 +118,9 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.2, 'maxiter': 100})
-    print('----', time.time() - start_time, 'seconds ----')
+    print('-----------------------------------------')
+    print('----', time.time() - start_time, 'seconds ----')    
+    print('-----------------------------------------\n')
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
@@ -146,7 +148,10 @@ def solve_states2(initial_states, desired_states, center_line, extern_conditions
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.2, 'maxiter': 300})
+    print('-----------------------------------------')
     print('----', time.time() - start_time, 'seconds ----')
+    print('-----------------------------------------\n')
+
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
