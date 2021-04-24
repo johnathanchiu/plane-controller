@@ -12,6 +12,9 @@ class AbstractKFilter:
         self.state = np.zeros(self.s)
         self.P = np.zeros((self.s, self.s))
 
+    def set_state(self, state):
+        self.state = state       
+
 
 class KFilter(AbstractKFilter):
     def __init__(self, A, B, Q, C, R, state=None):
