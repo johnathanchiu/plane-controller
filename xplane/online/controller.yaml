@@ -5,20 +5,21 @@ sample_time: 0.1 # s
 receding_horizon: 1.0 # s
 
 # number of states to solve in each MPC iterations
-simulation_size: 3
+simulation_size: 4
 time_step: 0.5 # s
 
 # number of environments to sample
 environment_samples: 5
 windspeed_bounds:
   - 0
-  - 10
+  - 15
 wind_heading_bounds:
-  - -50
-  - 50
+  - -180
+  - 180
 
 # simulation length
-simulation_steps: 30 # s
+satisfy_steps: 50 # seconds
+abort_steps: 40 # seconds
 
 # take-off
 takeoff: 0
