@@ -12,10 +12,10 @@ time_step: 0.5 # s
 environment_samples: 5
 windspeed_bounds:
   - 0
-  - 15
+  - 10
 wind_heading_bounds:
-  - -180
-  - 180
+  - 0
+  - 100
 
 # simulation length
 satisfy_steps: 50 # seconds
@@ -32,7 +32,7 @@ plane_cs: 27.41 # m^2
 plane_mass: 2800.93288475 # kg
 plane_half_length: 5.41 # m
 
-acceleration_constraint: 5 # m/s^2
+acceleration_constraint: 6 # m/s^2
 turning_constraint: 5 # degrees/s
 
 

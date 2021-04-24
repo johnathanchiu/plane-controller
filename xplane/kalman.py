@@ -54,14 +54,26 @@ class KFilter(AbstractKFilter):
         return self.state[0], self.state[1], pred_gs, true_heading(pred_heading)
 
 
-def find_kalman_controls(control, heading, winds=None, plane_specs=None):
-    control_x = control * np.cos(np.radians(solver_heading(heading)))
-    control_z = control * np.sin(np.radians(solver_heading(heading)))
+def find_kalman_controls(control, heading, omega=None, winds=None, plane_specs=None, time_step=1):
+    control_x, control_z = 0, 0
     if winds:
-        wind_speed, wind_heading = winds
-        plane_cs, plane_mass = plane_specs
-        wind_acc = wind_speed * plane_cs / plane_mass
-        
-        control_x += wind_acc * np.cos(np.radians(solver_heading(wind_heading)))
-        control_z += wind_acc * np.sin(np.radians(solver_heading(wind_heading)))
+        headings = []
+        plane_cs, plane_mass, plane_half_length = plane_specs
+        for wind in winds:
+            wind_speed, wind_heading = wind
+            wind_force = wind_speed * plane_cs
+            wind_torque = plane_half_length * wind_force * np.sin(np.radians(wind_heading - heading))
+            wind_w = 0.1 * time_step * (wind_torque / plane_mass) * plane_half_length
+            headings.append(heading + (omega + wind_w) * time_step)
+            
+            wind_acc = wind_speed * plane_cs / plane_mass
+            
+            control_x += wind_acc * np.cos(np.radians(solver_heading(wind_heading)))
+            control_z += wind_acc * np.sin(np.radians(solver_heading(wind_heading)))
+
+        control_x /= len(winds)
+        control_z /= len(winds)
+        heading = sum(headings) / len(headings) 
+    control_x += control * np.cos(np.radians(solver_heading(heading)))
+    control_z += control * np.sin(np.radians(solver_heading(heading)))
     return control_x, control_z

@@ -73,9 +73,9 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
 def formulate_objective(init_state, center_line, desired_states, environment, plane_specs, time_step=1):
     
     control_weight = 1
-    centerline_weight = 15
-    velocity_weight = 10
-    heading_weight = 8
+    centerline_weight = 80
+    velocity_weight = 17
+    heading_weight = 30
     
     desired_h, desired_v = desired_states
     

@@ -26,7 +26,7 @@ def kalman_solver(client, queues, kalman, init_states, config, runway, center_li
     time_step, sim_size = config['time_step'], config['simulation_size']
     receding_horizon = config['receding_horizon']
     
-    terminal_velocity = config['terminal_velocity'] + 5
+    terminal_velocity = config['terminal_velocity'] + 20
     plane_specs = [config['plane_cs'], config['plane_mass'], config['plane_half_length']]
     acceleration_constraint = config['acceleration_constraint']
     turning_constraint = config['turning_constraint']
@@ -54,7 +54,7 @@ def kalman_solver(client, queues, kalman, init_states, config, runway, center_li
     while time.time() - start < run_time + abort_time and need_abort_takeoff:
         pred_heading = init_states[-1]
         for i in range(int(receding_horizon / time_step)): 
-            ax, az = find_kalman_controls(accs[i], pred_heading + omegas[i] * time_step, winds[0], plane_specs[:-1])
+            ax, az = find_kalman_controls(accs[i], pred_heading, omegas[i], winds, plane_specs, time_step)
             kalman.predict(np.array([ax, az]))
             _, _, pred_ground_speed, pred_heading = kalman.get_state()
         x, z, pred_ground_speed, pred_heading = kalman.get_state()
@@ -92,18 +92,20 @@ def kalman_solver(client, queues, kalman, init_states, config, runway, center_li
 
         data_queue.put((time.time() - start, cost, me_head, me_gs, x, z, winds[0][0], winds[0][1]))
         
-        if check_dist < 2 and check_heading < 2 and check_velocity > -5:
+        if check_dist < 3 and check_heading < 2 and check_velocity > -20:
             # takeoff presumably successful
             print("Takeoff success with conditions:")
             print(f"groundspeed: {me_gs}, heading: {me_head}, cte: {check_dist}")
             need_abort_takeoff = False
+            break
             
         if time.time() - start > run_time:
             # set abort takeoff
             # set parking break when velocity is low
             if not breaks_set:
                 print("Aborting takeoff, conditions not satisfied")
-                break_set = True
+                print(f"groundspeed: {me_gs}, heading: {me_head}, cte: {check_dist}")
+                breaks_set = True
                 client.sendDREF(XPlaneDefs.park_dref, 1)
             if abs(me_gs) < 0.3:
                 break
@@ -117,8 +119,6 @@ def kalman_solver(client, queues, kalman, init_states, config, runway, center_li
     else:
         # takeoff should be successful
         data_queue.put(1)
-
-    print(time.time() - start)
 
     stop_queue.put(1)
                 
@@ -164,14 +164,16 @@ def update_environment(client, queues, wind_speed_bounds, wind_heading_bounds, n
     environment_queue, stop_queue = queues
     runway_heading = runway['runway_heading']
 
-    lb_ws, ub_ws = wind_speed_bounds
-    lb_wh, ub_wh = wind_heading_bounds
+    ws_ave, ws_loc = wind_speed_bounds
+    wh_ave, wh_loc = wind_heading_bounds
 
     apply = True
     while apply:
 
-        wind_speeds = np.random.randint(lb_ws, ub_ws, size=num_samples+1).tolist()
-        wind_headings = np.random.randint(lb_wh, ub_wh, size=num_samples+1).tolist()
+        wind_speeds = np.random.normal(ws_ave, ws_loc, size=1)[0]
+        wind_speeds = [wind_speeds] + (wind_speeds + np.random.normal(0, 4, size=num_samples)).tolist()
+        wind_headings = np.random.normal(wh_ave, wh_loc, size=1)[0]
+        wind_headings = [wind_headings] + (wind_headings + np.random.normal(0, 4, size=num_samples)).tolist()
 
         wind_speed = wind_speeds[0]
         wind_heading = wind_headings[0]
@@ -189,7 +191,7 @@ def update_environment(client, queues, wind_speed_bounds, wind_heading_bounds, n
         environment_queue.put(list(zip(wind_speeds, wind_headings)))
         apply = stop_queue.empty()
 
-        time.sleep(5)
+        time.sleep(3)
     
     
 def run_controller():
@@ -289,8 +291,8 @@ if __name__ == '__main__':
     # controls matrix
     B = np.array([[0.5 * dt * dt, 0],
                   [0, 0.5 * dt * dt],
-                  [0.6 * dt, 0],
-                  [0, 0.6 * dt]])
+                  [dt, 0],
+                  [0, dt]])
     # measurements matrix
     H = np.eye(4)
     # uncertainty for prediction
@@ -319,13 +321,21 @@ if __name__ == '__main__':
        
     kf = KFilter(F, B, Q, H, R)
 
-    no_sim_runs = 100
+    no_sim_runs = 60
 
-    num_samples = 0
-    log = open("sample0.csv", "w")
+    choose_num_samples = [0, 5, 8]
+    takeoff_successes = [0, 0, 0]
+    log = open("sample_0.csv", "w")
     log.write("sample_no,data,prediction\n")
+    log2 = open("sample_5.csv", "w")
+    log2.write("sample_no,data,prediction\n")
+    log3 = open("sample_8.csv", "w")
+    log3.write("sample_no,data,prediction\n")
+    logs = [log, log2, log3]
     
     for i in range(no_sim_runs):  
+        curr_log = logs[i % 3]
+        num_samples = choose_num_samples[i % 3]
         gs, psi, x, z = setup(xp_client, runway, init_phi, init_theta, fuel_tank)
         dist = signed_rejection_dist(center_line, x - origin_x, z - origin_z)
         init_states = [dist, gs, psi]
@@ -333,44 +343,13 @@ if __name__ == '__main__':
         kf.reset()
         kf.set_state(np.array([x - origin_x, z - origin_z, vx, vz]))
         sim_results, takeoff_decision = run_controller()
-        print(f"Simulation number: {i+1} with results: {takeoff_decision}")
-        log.write(f"{i},{sim_results},{takeoff_decision}\n")
-    log.close()
-
-    num_samples = 5
-    log = open("sample5.csv", "w")
-    log.write("sample_no,data,prediction\n")
-
-    for i in range(no_sim_runs):
-        gs, psi, x, z = setup(xp_client, runway, init_phi, init_theta, fuel_tank)
-        dist = signed_rejection_dist(center_line, x - origin_x, z - origin_z)
-        init_states = [dist, gs, psi]
-        vx, vz = find_kalman_controls(gs, psi)
-        kf.reset()
-        kf.set_state(np.array([x - origin_x, z - origin_z, vx, vz]))
-        sim_results, takeoff_decision = run_controller()
-        print(f"Simulation Number: {i+1}")
-        print(f"Results: {takeoff_decision}")
-        log.write(f"{i},{sim_results},{takeoff_decision}\n")
+        print(f"({num_samples}) Simulation number: {i+1} with results: {takeoff_decision}")
+        takeoff_successes[i%3] += takeoff_decision
+        print(f"Number of successful takeoffs: {takeoff_successes[i%3]}")
+        curr_log.write(f"{i},{sim_results},{takeoff_decision}\n")
 
     log.close()
-
-    num_samples = 10
-    log = open("sample5.csv", "w")
-    log.write("sample_no,data,prediction\n")
-
-    for i in range(no_sim_runs):
-        gs, psi, x, z = setup(xp_client, runway, init_phi, init_theta, fuel_tank)
-        dist = signed_rejection_dist(center_line, x - origin_x, z - origin_z)
-        init_states = [dist, gs, psi]
-        vx, vz = find_kalman_controls(gs, psi)
-        kf.reset()
-        kf.set_state(np.array([x - origin_x, z - origin_z, vx, vz]))
-        sim_results, takeoff_decision = run_controller()
-        print(f"Simulation Number: {i+1}")
-        print(f"Results: {takeoff_decision}")
-        log.write(f"{i},{sim_results},{takeoff_decision}\n")
-
-    log.close()
+    log2.close()
+    log3.close()
 
 
