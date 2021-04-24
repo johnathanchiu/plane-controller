@@ -73,8 +73,8 @@ def compute_states(init_state, controls, wind_dynamics, plane_specs, time_step=1
 def formulate_objective(init_state, center_line, desired_states, environment, plane_specs, time_step=1):
     
     control_weight = 1
-    centerline_weight = 10
-    velocity_weight = 3
+    centerline_weight = 15
+    velocity_weight = 10
     heading_weight = 8
     
     desired_h, desired_v = desired_states
@@ -86,8 +86,8 @@ def formulate_objective(init_state, center_line, desired_states, environment, pl
             for i in range(6, len(states), 6):
                 px, py, v, h, a, w = states[i:i+6]
                 cost += centerline_weight * np.abs(signed_rejection_dist(center_line, px, py))
-                cost += velocity_weight * np.linalg.norm([desired_v - v], ord=2)
-                cost += heading_weight * np.linalg.norm([desired_h - h], ord=2)
+                cost += velocity_weight * np.abs(desired_v - v)
+                cost += heading_weight * np.abs(desired_h - h)
         return cost / len(environment)
     
     return objective
@@ -118,9 +118,9 @@ def solve_states(initial_states, desired_states, center_line, extern_conditions,
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.2, 'maxiter': 100})
-    print('-----------------------------------------')
-    print('----', time.time() - start_time, 'seconds ----')    
-    print('-----------------------------------------\n')
+    # print('-----------------------------------------')
+    # print('----', time.time() - start_time, 'seconds ----')    
+    # print('-----------------------------------------\n')
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
     states = get_states_controls(states)
@@ -148,9 +148,9 @@ def solve_states2(initial_states, desired_states, center_line, extern_conditions
     start_time = time.time()
     result = opt.minimize(obj, init_guess, method='SLSQP', bounds=bounds,
                           options={'eps': 0.2, 'maxiter': 300})
-    print('-----------------------------------------')
-    print('----', time.time() - start_time, 'seconds ----')
-    print('-----------------------------------------\n')
+    # print('-----------------------------------------')
+    # print('----', time.time() - start_time, 'seconds ----')
+    # print('-----------------------------------------\n')
 
 
     states = compute_states(state0, result.x, extern_conditions[0], plane_specs, time_step=time_step)
